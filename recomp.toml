@@ -1,0 +1,50 @@
+# =============================================================================
+# Star Wars Episode I: Racer - N64 Static Recompilation Config
+# =============================================================================
+# "Now THIS is podracing!" - Anakin Skywalker
+#
+# Target: N64Recomp static recompiler
+# ROM: Star Wars Episode I - Racer (U) [!].z64
+# Game Code: NEPE
+# CRC1: 0x72F70398  CRC2: 0x6556A98B
+# =============================================================================
+
+[input]
+entrypoint = 0x80000400
+symbols_file_path = "symbols.toml"
+rom_file_path = "baserom.z64"
+output_func_path = "RecompiledFuncs"
+
+[output]
+single_file_output = false
+functions_per_output_file = 50
+recomp_include = "#include \"recomp.h\""
+
+[config]
+uses_mips3_float_mode = false
+bss_section_suffix = ".bss"
+unpaired_lo16_warnings = true
+trace_mode = false
+
+# =============================================================================
+# Stubs - Functions to replace with empty stubs
+# These are typically OS/hardware functions that need native reimplementation
+# =============================================================================
+[[patches.stubs]]
+# Add functions to stub as we identify them
+# name = "osInitialize"
+
+# =============================================================================
+# Ignored - Functions to skip recompilation entirely
+# =============================================================================
+[[patches.ignored]]
+# Add functions to ignore as we identify them
+# name = "some_unused_func"
+
+# =============================================================================
+# Instruction patches - Fix individual instructions if needed
+# =============================================================================
+# [[patches.instruction]]
+# func_name = "func_80001234"
+# vram = 0x80001238
+# value = 0x00000000

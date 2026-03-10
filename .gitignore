@@ -1,0 +1,33 @@
+# ROMs - users must supply their own
+baserom.z64
+*.z64
+*.n64
+*.v64
+
+# Build output
+build/
+RecompiledFuncs/
+*.o
+*.elf
+*.exe
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Claude Code
+.claude/
