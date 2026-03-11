@@ -28,21 +28,33 @@ No existing N64 decompilation exists for this game. We're flying blind through B
 | Milestone | Status |
 |-----------|--------|
 | ROM Analysis | COMPLETE |
-| Function Discovery (854 functions) | COMPLETE |
+| Function Discovery (870+ functions) | COMPLETE |
 | Symbol File Generation | COMPLETE |
 | N64Recomp Config | COMPLETE |
 | Debug Tooling (analyzer, differ, strings, progress) | COMPLETE |
-| Build System | COMPLETE |
+| Build System (Make + CMake) | COMPLETE |
+| libultra Stubbing (125 functions) | COMPLETE |
+| N64Recomp Integration | COMPLETE |
+| **Native Compilation (MSVC)** | **COMPLETE** |
+| **N64ModernRuntime Integration** | **COMPLETE** |
 | Function Naming | IN PROGRESS |
-| libultra Function Identification | TODO |
-| N64Recomp Integration | TODO |
-| Runtime Integration (ultramodern) | TODO |
-| Graphics (RT64) | TODO |
+| **RT64 Renderer Integration** | **IN PROGRESS** |
+| **SDL2 Window + Input** | **IN PROGRESS** |
 | Audio Reimplementation | TODO |
-| Controller Input | TODO |
 | Playable Build | THE DREAM |
 
-**Current Progress: Phase 1 - Analysis & Infrastructure**
+**Current Progress: Phase 4 - RT64 Integration (In Progress)**
+
+The game is recompiled and linking against all major runtime components:
+- **1,402 functions** recompiled (870 from symbols + 532 auto-detected)
+- **551,906 lines** of generated C code
+- **125 libultra/OS functions** stubbed for ultramodern reimplementation
+- **SWE1Racer.exe** links against N64ModernRuntime (librecomp + ultramodern) + RT64
+- RT64 renderer compiles as static library (D3D12/Vulkan backend)
+- SDL2 window creation, keyboard input, and event loop implemented
+- Placeholder RendererContext bridges ultramodern to RT64
+- Audio stubs prevent stalls (Phase 5 TODO)
+- Built with MSVC (Visual Studio 2022) and CMake
 
 ## ROM Info
 
@@ -56,7 +68,7 @@ No existing N64 decompilation exists for this game. We're flying blind through B
 | CRC2 | 0x6556A98B |
 | ROM Size | 32 MB |
 | Code Size | ~608 KB (0x1000 - 0x99000) |
-| Functions | 854 discovered |
+| Functions | 870 (recompiled) |
 
 ## Getting Started
 
@@ -111,37 +123,57 @@ make strings-files
 make progress
 ```
 
-### Building (once N64Recomp is set up)
+### Building
 
 ```bash
-# Build N64Recomp first
+# 1. Build N64Recomp (the recompiler tool)
 cd /path/to/N64Recomp
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake -B build -G "Visual Studio 17 2022"
+cmake --build build --config Release --target N64RecompCLI
+
+# 2. Recompile the game (MIPS -> C)
+cd /path/to/racer
+make recomp N64RECOMP=/path/to/N64Recomp/build/Release/N64Recomp.exe
+
+# 3. Generate the function lookup table
+python tools/gen_lookup_table.py
+
+# 4. Build the native executable
+cmake -B build -G "Visual Studio 17 2022"
 cmake --build build --config Release
 
-# Then recompile the game
-cd /path/to/racer
-make recomp N64RECOMP=/path/to/N64Recomp/build/N64Recomp
+# 5. Run it!
+build/Release/SWE1Racer.exe
 ```
 
 ## Project Structure
 
 ```
 racer/
-├── README.md           # You are here
-├── Makefile            # Build system
-├── recomp.toml         # N64Recomp configuration
-├── symbols.toml        # Function symbols (854 discovered)
-├── baserom.z64         # Your ROM goes here (not tracked)
+├── README.md              # You are here
+├── Makefile               # Analysis & debug build system
+├── CMakeLists.txt         # CMake build for native executable
+├── recomp.toml            # N64Recomp configuration
+├── symbols.toml           # Function symbols (870 functions)
+├── baserom.z64            # Your ROM goes here (not tracked)
 ├── tools/
-│   ├── rom_analyzer.py # ROM analysis & symbol generation
-│   ├── func_differ.py  # Function disassembler
-│   ├── string_dumper.py# String extraction & categorization
-│   └── progress.py     # Progress tracker
-├── src/                # Future: recompiled source patches
-├── include/            # Future: header files
-├── assets/             # Future: extracted assets
-└── docs/               # Future: documentation
+│   ├── rom_analyzer.py    # ROM analysis & symbol generation
+│   ├── func_differ.py     # Function disassembler
+│   ├── string_dumper.py   # String extraction & categorization
+│   ├── progress.py        # Progress tracker
+│   ├── libultra_identify.py # libultra function pattern matcher
+│   ├── fix_statics.py     # Auto-fix static_0_ sub-function errors
+│   └── gen_lookup_table.py # Generate function lookup table
+├── src/
+│   ├── main.cpp           # Entry point, SDL window, callbacks
+│   ├── section_table.cpp  # VRAM->function pointer lookup table
+│   ├── rt64_render_context.cpp  # RT64 renderer bridge (placeholder)
+│   └── audio.cpp          # Audio stubs (SDL playback TODO)
+├── RecompiledFuncs/       # N64Recomp output (generated)
+│   ├── funcs.h            # Function declarations
+│   └── funcs_*.c          # Recompiled C code (29 files)
+├── include/               # Project headers
+└── build/                 # CMake build output
 ```
 
 ## Fun Stuff Found in the ROM
@@ -193,3 +225,5 @@ This project does not include any copyrighted material. You must provide your ow
 *"I have a bad feeling about this." - Everyone in Star Wars, at some point*
 
 *"It's working! IT'S WORKING!" - What we'll say when the first frame renders*
+
+*"Your focus determines your reality." - Qui-Gon Jinn (also good advice for debugging recompiled MIPS)*

@@ -14,37 +14,143 @@ entrypoint = 0x80000400
 symbols_file_path = "symbols.toml"
 rom_file_path = "baserom.z64"
 output_func_path = "RecompiledFuncs"
-
-[output]
 single_file_output = false
 functions_per_output_file = 50
-recomp_include = "#include \"recomp.h\""
-
-[config]
 uses_mips3_float_mode = false
 bss_section_suffix = ".bss"
-unpaired_lo16_warnings = true
-trace_mode = false
+unpaired_lo16_warnings = false
 
 # =============================================================================
-# Stubs - Functions to replace with empty stubs
-# These are typically OS/hardware functions that need native reimplementation
+# Patches
 # =============================================================================
-[[patches.stubs]]
-# Add functions to stub as we identify them
-# name = "osInitialize"
+[patches]
 
-# =============================================================================
-# Ignored - Functions to skip recompilation entirely
-# =============================================================================
-[[patches.ignored]]
-# Add functions to ignore as we identify them
-# name = "some_unused_func"
-
-# =============================================================================
-# Instruction patches - Fix individual instructions if needed
-# =============================================================================
-# [[patches.instruction]]
-# func_name = "func_80001234"
-# vram = 0x80001238
-# value = 0x00000000
+# Stub all libultra OS functions (0x8008C000+) and cache management functions.
+# These will be reimplemented by N64ModernRuntime (ultramodern).
+stubs = [
+    "func_800879C4",
+    "static_0_80087CC0",
+    "cache_writeback_800887D0",
+    "cache_inval_80088AD0",
+    "func_8008C090",
+    "func_8008C100",
+    "func_8008C190",
+    "func_8008C280",
+    "func_8008C390",
+    "func_8008C770",
+    "func_8008C7B0",
+    "func_8008C930",
+    "func_8008CAC8",
+    "func_8008D42C",
+    "func_8008D510",
+    "func_8008D554",
+    "func_8008D5A8",
+    "func_8008D5FC",
+    "func_8008D684",
+    "func_8008D72C",
+    "func_8008D870",
+    "func_8008DCB0",
+    "func_8008DD80",
+    "func_8008DEA0",
+    "func_8008E074",
+    "func_8008E420",
+    "func_8008E54C",
+    "func_8008E9F4",
+    "func_8008EADC",
+    "func_8008EE04",
+    "func_8008EEE4",
+    "func_8008F0B4",
+    "func_8008F3FC",
+    "func_8008F980",
+    "func_8008FA94",
+    "func_8008FB20",
+    "func_8008FBCC",
+    "func_8008FC3C",
+    "func_8008FD60",
+    "func_8008FDEC",
+    "func_8008FE60",
+    "func_8008FEB0",
+    "func_8008FF98",
+    "func_800900E0",
+    "func_80090170",
+    "func_80090200",
+    "func_800902A0",
+    "func_80090330",
+    "func_800903D0",
+    "func_80090450",
+    "func_800905A0",
+    "func_800905F8",
+    "func_80090634",
+    "func_80090660",
+    "func_800906F0",
+    "osSi_func",
+    "func_80090880",
+    "func_80090960",
+    "func_80090A10",
+    "func_80090C20",
+    "func_80090F70",
+    "func_800910D4",
+    "func_80091280",
+    "func_80091354",
+    "func_80091E34",
+    "func_80091FD0",
+    "func_80092050",
+    "func_80092560",
+    "func_800926A0",
+    "func_800928F0",
+    "func_80092B10",
+    "func_80093180",
+    "pi_create_access_queue",
+    "pi_rel_access",
+    "pi_read_io",
+    "osWritebackDCache_80093898",
+    "osSp_small",
+    "osSpTask_candidate",
+    "func_80093A68",
+    "os_set_cause",
+    "__osSetCompare_80093C80",
+    "func_80093E44",
+    "func_80093FB4",
+    "func_80094028",
+    "osViManager_candidate",
+    "osPiStartDma_candidate_800944E0",
+    "osPiManager_candidate_800945C0",
+    "func_800947F0",
+    "func_80094C80",
+    "func_80094E44",
+    "func_80094ED0",
+    "func_80095048",
+    "func_800950F4",
+    "osPiManager_candidate_800952AC",
+    "osPiStartDma_candidate_80095820",
+    "func_800958DC",
+    "func_80095990",
+    "func_80095B68",
+    "func_80095C20",
+    "func_80095DA8",
+    "func_80095F34",
+    "func_8009615C",
+    "func_800963CC",
+    "func_80096790",
+    "func_80096930",
+    "func_80096A08",
+    "func_80096BF0",
+    "func_80096E90",
+    "func_80097400",
+    "osPiRaw_io",
+    "pi_raw_start_dma",
+    "osPiManager_candidate_800979F8",
+    "osPiManager_candidate_80097B88",
+    "func_80097D20",
+    "func_80097D70",
+    "func_80097DC0",
+    "func_80097E60",
+    "func_80097F68",
+    "osGetCount_8008C550",
+    "libultra_split_8008D12C",
+    "libultra_split_8008D284",
+    "libultra_split_8008D450",
+    "libultra_split_80093900",
+    "libultra_split_80093CD0",
+    "libultra_split_80093D50",
+]

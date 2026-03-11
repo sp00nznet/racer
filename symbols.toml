@@ -9,9 +9,44 @@ vram = 0x80000400
 size = 0x98000
 
   [[section.functions]]
-  name = "func_80000470"
+  name = "recomp_entrypoint"
+  vram = 0x80000400
+  size = 0x70
+
+  [[section.functions]]
+  name = "boot_init"
   vram = 0x80000470
-  size = 0x144
+  size = 0x9C
+
+  [[section.functions]]
+  name = "set_debug_level"
+  vram = 0x80000520
+  size = 0xC
+
+  [[section.functions]]
+  name = "set_debug_value"
+  vram = 0x8000052C
+  size = 0xC
+
+  [[section.functions]]
+  name = "get_debug_value"
+  vram = 0x80000538
+  size = 0xC
+
+  [[section.functions]]
+  name = "nop_stub"
+  vram = 0x80000544
+  size = 0x8
+
+  [[section.functions]]
+  name = "save_arg_to_stack"
+  vram = 0x8000054C
+  size = 0x8
+
+  [[section.functions]]
+  name = "bzero_func"
+  vram = 0x80000554
+  size = 0x60
 
   [[section.functions]]
   name = "func_800005B4"
@@ -194,7 +229,7 @@ size = 0x98000
   size = 0x274
 
   [[section.functions]]
-  name = "func_80006790"
+  name = "math_vector_func_80006790"
   vram = 0x80006790
   size = 0xB8
 
@@ -699,17 +734,17 @@ size = 0x98000
   size = 0x250
 
   [[section.functions]]
-  name = "func_80015430"
+  name = "math_float_func"
   vram = 0x80015430
   size = 0x48
 
   [[section.functions]]
-  name = "func_80015478"
+  name = "math_vector_func_80015478"
   vram = 0x80015478
   size = 0x58
 
   [[section.functions]]
-  name = "func_800154D0"
+  name = "math_vector_func_800154D0"
   vram = 0x800154D0
   size = 0x7C
 
@@ -749,7 +784,7 @@ size = 0x98000
   size = 0x1EC
 
   [[section.functions]]
-  name = "func_80016C0C"
+  name = "math_vector_func_80016C0C"
   vram = 0x80016C0C
   size = 0xB8
 
@@ -779,7 +814,7 @@ size = 0x98000
   size = 0x110
 
   [[section.functions]]
-  name = "func_8001745C"
+  name = "math_vector_func_8001745C"
   vram = 0x8001745C
   size = 0x5C
 
@@ -809,7 +844,7 @@ size = 0x98000
   size = 0xD4
 
   [[section.functions]]
-  name = "func_80017AC0"
+  name = "math_vector_func_80017AC0"
   vram = 0x80017AC0
   size = 0x7C
 
@@ -834,7 +869,7 @@ size = 0x98000
   size = 0x1EC
 
   [[section.functions]]
-  name = "func_800181BC"
+  name = "render_submit"
   vram = 0x800181BC
   size = 0x19C4
 
@@ -1169,7 +1204,7 @@ size = 0x98000
   size = 0x2DC
 
   [[section.functions]]
-  name = "func_8002F4D0"
+  name = "main_init"
   vram = 0x8002F4D0
   size = 0x80
 
@@ -1244,7 +1279,7 @@ size = 0x98000
   size = 0x24
 
   [[section.functions]]
-  name = "func_80030154"
+  name = "racer_update_speed"
   vram = 0x80030154
   size = 0x20
 
@@ -1754,7 +1789,7 @@ size = 0x98000
   size = 0x1BC
 
   [[section.functions]]
-  name = "func_8003EC40"
+  name = "collision_check"
   vram = 0x8003EC40
   size = 0x70
 
@@ -2039,7 +2074,7 @@ size = 0x98000
   size = 0x188
 
   [[section.functions]]
-  name = "func_80046670"
+  name = "audio_play_sfx"
   vram = 0x80046670
   size = 0x11C
 
@@ -2194,7 +2229,7 @@ size = 0x98000
   size = 0x428
 
   [[section.functions]]
-  name = "func_8004E034"
+  name = "math_vector_func_8004E034"
   vram = 0x8004E034
   size = 0x6C
 
@@ -2564,7 +2599,7 @@ size = 0x98000
   size = 0x5C
 
   [[section.functions]]
-  name = "func_80063AFC"
+  name = "math_vector_func_80063AFC"
   vram = 0x80063AFC
   size = 0x64
 
@@ -3441,7 +3476,12 @@ size = 0x98000
   [[section.functions]]
   name = "func_800879C4"
   vram = 0x800879C4
-  size = 0x3AC
+  size = 0x2FC
+
+  [[section.functions]]
+  name = "static_0_80087CC0"
+  vram = 0x80087CC0
+  size = 0xB0
 
   [[section.functions]]
   name = "func_80087D70"
@@ -3494,9 +3534,14 @@ size = 0x98000
   size = 0x298
 
   [[section.functions]]
-  name = "func_800887D0"
+  name = "cache_writeback_800887D0"
   vram = 0x800887D0
-  size = 0x350
+  size = 0x300
+
+  [[section.functions]]
+  name = "cache_inval_80088AD0"
+  vram = 0x80088AD0
+  size = 0x50
 
   [[section.functions]]
   name = "func_80088B20"
@@ -3614,7 +3659,7 @@ size = 0x98000
   size = 0x24
 
   [[section.functions]]
-  name = "func_8008A6B4"
+  name = "dma_read_rom"
   vram = 0x8008A6B4
   size = 0x5C
 
@@ -3674,17 +3719,17 @@ size = 0x98000
   size = 0x15C
 
   [[section.functions]]
-  name = "func_8008B580"
+  name = "os_init_system"
   vram = 0x8008B580
   size = 0x290
 
   [[section.functions]]
-  name = "func_8008B810"
+  name = "os_create_mesg_queues"
   vram = 0x8008B810
   size = 0x150
 
   [[section.functions]]
-  name = "func_8008B960"
+  name = "os_create_threads"
   vram = 0x8008B960
   size = 0x150
 
@@ -3731,7 +3776,14 @@ size = 0x98000
   [[section.functions]]
   name = "func_8008C390"
   vram = 0x8008C390
-  size = 0x3E0
+  size = 0x1C0
+
+  # osGetCount - MFC0 v0, Count(9); JR RA; NOP
+  # Split from func_8008C390 to prevent static_0_ auto-detection
+  [[section.functions]]
+  name = "osGetCount_8008C550"
+  vram = 0x8008C550
+  size = 0x220
 
   [[section.functions]]
   name = "func_8008C770"
@@ -3751,12 +3803,30 @@ size = 0x98000
   [[section.functions]]
   name = "func_8008CAC8"
   vram = 0x8008CAC8
-  size = 0x964
+  size = 0x664
+
+  # Auto-split from func_8008CAC8 to prevent static_0_ detection
+  [[section.functions]]
+  name = "libultra_split_8008D12C"
+  vram = 0x8008D12C
+  size = 0x158
+
+  # Auto-split from libultra_split_8008D12C to prevent static_0_ detection
+  [[section.functions]]
+  name = "libultra_split_8008D284"
+  vram = 0x8008D284
+  size = 0x1A8
 
   [[section.functions]]
   name = "func_8008D42C"
   vram = 0x8008D42C
-  size = 0xE4
+  size = 0x24
+
+  # Auto-split from func_8008D42C to prevent static_0_ detection
+  [[section.functions]]
+  name = "libultra_split_8008D450"
+  vram = 0x8008D450
+  size = 0xC0
 
   [[section.functions]]
   name = "func_8008D510"
@@ -3964,7 +4034,7 @@ size = 0x98000
   size = 0xE0
 
   [[section.functions]]
-  name = "func_800907D0"
+  name = "osSi_func"
   vram = 0x800907D0
   size = 0xB0
 
@@ -4049,32 +4119,38 @@ size = 0x98000
   size = 0x650
 
   [[section.functions]]
-  name = "func_800937D0"
+  name = "pi_create_access_queue"
   vram = 0x800937D0
   size = 0x58
 
   [[section.functions]]
-  name = "func_80093828"
+  name = "pi_rel_access"
   vram = 0x80093828
   size = 0x3C
 
   [[section.functions]]
-  name = "func_80093864"
+  name = "pi_read_io"
   vram = 0x80093864
   size = 0x34
 
   [[section.functions]]
-  name = "func_80093898"
+  name = "osWritebackDCache_80093898"
   vram = 0x80093898
-  size = 0x100
+  size = 0x68
+
+  # Auto-split from osWritebackDCache_80093898 to prevent static_0_ detection
+  [[section.functions]]
+  name = "libultra_split_80093900"
+  vram = 0x80093900
+  size = 0x98
 
   [[section.functions]]
-  name = "func_80093998"
+  name = "osSp_small"
   vram = 0x80093998
   size = 0x38
 
   [[section.functions]]
-  name = "func_800939D0"
+  name = "osSpTask_candidate"
   vram = 0x800939D0
   size = 0x98
 
@@ -4084,14 +4160,26 @@ size = 0x98000
   size = 0x1C8
 
   [[section.functions]]
-  name = "func_80093C30"
+  name = "os_set_cause"
   vram = 0x80093C30
   size = 0x50
 
   [[section.functions]]
-  name = "func_80093C80"
+  name = "__osSetCompare_80093C80"
   vram = 0x80093C80
-  size = 0x1C4
+  size = 0x50
+
+  # Auto-split from __osSetCompare_80093C80 to prevent static_0_ detection
+  [[section.functions]]
+  name = "libultra_split_80093CD0"
+  vram = 0x80093CD0
+  size = 0x80
+
+  # Auto-split from libultra_split_80093CD0 to prevent static_0_ detection
+  [[section.functions]]
+  name = "libultra_split_80093D50"
+  vram = 0x80093D50
+  size = 0xF4
 
   [[section.functions]]
   name = "func_80093E44"
@@ -4109,17 +4197,17 @@ size = 0x98000
   size = 0x1B8
 
   [[section.functions]]
-  name = "func_800941E0"
+  name = "osViManager_candidate"
   vram = 0x800941E0
   size = 0x300
 
   [[section.functions]]
-  name = "func_800944E0"
+  name = "osPiStartDma_candidate_800944E0"
   vram = 0x800944E0
   size = 0xE0
 
   [[section.functions]]
-  name = "func_800945C0"
+  name = "osPiManager_candidate_800945C0"
   vram = 0x800945C0
   size = 0x230
 
@@ -4154,12 +4242,12 @@ size = 0x98000
   size = 0x1B8
 
   [[section.functions]]
-  name = "func_800952AC"
+  name = "osPiManager_candidate_800952AC"
   vram = 0x800952AC
   size = 0x574
 
   [[section.functions]]
-  name = "func_80095820"
+  name = "osPiStartDma_candidate_80095820"
   vram = 0x80095820
   size = 0xBC
 
@@ -4234,22 +4322,22 @@ size = 0x98000
   size = 0x558
 
   [[section.functions]]
-  name = "func_80097958"
+  name = "osPiRaw_io"
   vram = 0x80097958
   size = 0x38
 
   [[section.functions]]
-  name = "func_80097990"
+  name = "pi_raw_start_dma"
   vram = 0x80097990
   size = 0x68
 
   [[section.functions]]
-  name = "func_800979F8"
+  name = "osPiManager_candidate_800979F8"
   vram = 0x800979F8
   size = 0x190
 
   [[section.functions]]
-  name = "func_80097B88"
+  name = "osPiManager_candidate_80097B88"
   vram = 0x80097B88
   size = 0x198
 
