@@ -10,6 +10,10 @@
 #include <memory>
 #include <string>
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <dbghelp.h>
+
 #include <SDL.h>
 #include <SDL_syswm.h>
 
@@ -48,7 +52,7 @@ extern void swe1r_set_frequency(uint32_t freq);
 // ROM Hash: Star Wars Episode I: Racer (US)
 // CRC1: 0x72F70398  CRC2: 0x6556A98B
 // =============================================================================
-constexpr uint64_t SWE1R_ROM_HASH = (uint64_t(0x72F70398) << 32) | uint64_t(0x6556A98B);
+constexpr uint64_t SWE1R_ROM_HASH = 0x9B89D0F9EBC12D32ULL; // XXH3_64bits of baserom.z64
 
 // =============================================================================
 // Global state
@@ -195,6 +199,12 @@ void vi_callback() {
 
 void gfx_init_callback() {
     printf("[SWE1R] Graphics initialized\n");
+    // Start the game now that the renderer and VI thread are ready.
+    // This must happen after start() has begun, not before, so the VI
+    // thread gets a chance to set dummy VI state before is_game_started() is true.
+    std::u8string game_id = u8"swe1racer";
+    recomp::start_game(game_id);
+    printf("[SWE1R] Game started\n");
 }
 
 // =============================================================================
@@ -220,7 +230,64 @@ std::string get_game_thread_name(const OSThread* t) {
 // Main
 // =============================================================================
 
+static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ep) {
+    fprintf(stderr, "\n[CRASH] Exception 0x%08lX at address 0x%p\n",
+            ep->ExceptionRecord->ExceptionCode,
+            ep->ExceptionRecord->ExceptionAddress);
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        fprintf(stderr, "[CRASH] Access violation %s address 0x%p\n",
+                ep->ExceptionRecord->ExceptionInformation[0] ? "writing" : "reading",
+                (void*)ep->ExceptionRecord->ExceptionInformation[1]);
+    }
+    // Print module + offset for the crash address
+    HMODULE hMod = NULL;
+    GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+                       (LPCSTR)ep->ExceptionRecord->ExceptionAddress, &hMod);
+    if (hMod) {
+        char modName[MAX_PATH];
+        GetModuleFileNameA(hMod, modName, MAX_PATH);
+        uintptr_t offset = (uintptr_t)ep->ExceptionRecord->ExceptionAddress - (uintptr_t)hMod;
+        fprintf(stderr, "[CRASH] Module: %s + 0x%llX\n", modName, (unsigned long long)offset);
+    }
+    // Print stack trace using SymFromAddr
+    SymInitialize(GetCurrentProcess(), NULL, TRUE);
+    STACKFRAME64 frame = {};
+    CONTEXT ctx = *ep->ContextRecord;
+    frame.AddrPC.Offset = ctx.Rip;
+    frame.AddrPC.Mode = AddrModeFlat;
+    frame.AddrStack.Offset = ctx.Rsp;
+    frame.AddrStack.Mode = AddrModeFlat;
+    frame.AddrFrame.Offset = ctx.Rbp;
+    frame.AddrFrame.Mode = AddrModeFlat;
+    fprintf(stderr, "[CRASH] Stack trace:\n");
+    for (int i = 0; i < 20; i++) {
+        if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, GetCurrentProcess(),
+                         GetCurrentThread(), &frame, &ctx, NULL,
+                         SymFunctionTableAccess64, SymGetModuleBase64, NULL))
+            break;
+        char buf[sizeof(SYMBOL_INFO) + 256];
+        SYMBOL_INFO* sym = (SYMBOL_INFO*)buf;
+        sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+        sym->MaxNameLen = 255;
+        DWORD64 disp = 0;
+        if (SymFromAddr(GetCurrentProcess(), frame.AddrPC.Offset, &disp, sym)) {
+            fprintf(stderr, "  [%d] %s + 0x%llX\n", i, sym->Name, (unsigned long long)disp);
+        } else {
+            fprintf(stderr, "  [%d] 0x%llX\n", i, (unsigned long long)frame.AddrPC.Offset);
+        }
+    }
+    fflush(stderr);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
 int main(int argc, char* argv[]) {
+    // Force unbuffered output so we see prints before crashes
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+    SetUnhandledExceptionFilter(crash_handler);
+
+    fprintf(stderr, "[DEBUG] main() entered\n");
+
     printf("===========================================\n");
     printf("  Star Wars Episode I: Racer\n");
     printf("  N64 Static Recompilation v%d.%d.%d\n", 0, 1, 0);
@@ -235,7 +302,7 @@ int main(int argc, char* argv[]) {
     game_entry.mod_game_id = "swe1racer";
     game_entry.save_type = recomp::SaveType::Eep4k;
     game_entry.is_enabled = true;
-    game_entry.entrypoint_address = 0x80000400;
+    game_entry.entrypoint_address = (gpr)(int32_t)0x80000400; // Sign-extend for MEM macros
     game_entry.entrypoint = recomp_entrypoint;
 
     // Register overlay/section tables
@@ -316,11 +383,8 @@ int main(int argc, char* argv[]) {
     printf("[SWE1R] Starting runtime...\n");
     printf("  \"It's working! IT'S WORKING!\" - Anakin Skywalker\n\n");
 
-    // Load ROM and start game
-    std::u8string game_id = u8"swe1racer";
-    recomp::start_game(game_id);
-
-    // This blocks until the game exits
+    // Game is started from gfx_init_callback after renderer is ready.
+    // This blocks until the game exits.
     recomp::start(cfg);
 
     // Cleanup

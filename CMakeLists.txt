@@ -23,6 +23,9 @@ find_package(SDL2 CONFIG REQUIRED)
 # =============================================================================
 # RT64 Renderer
 # =============================================================================
+# RT64 links SDL2 by bare name; ensure vcpkg's lib dir is on the search path
+link_directories("C:/vcpkg/installed/x64-windows/lib")
+link_directories("C:/vcpkg/installed/x64-windows/lib/manual-link")
 set(RT64_STATIC ON CACHE BOOL "Build RT64 as static library" FORCE)
 add_subdirectory(${RT64_DIR} ${CMAKE_BINARY_DIR}/rt64)
 
@@ -79,5 +82,5 @@ target_link_libraries(SWE1Racer PRIVATE
 )
 
 if(WIN32)
-    target_link_libraries(SWE1Racer PRIVATE dxgi d3d12 d3dcompiler)
+    target_link_libraries(SWE1Racer PRIVATE dxgi d3d12 d3dcompiler dbghelp)
 endif()

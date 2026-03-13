@@ -11,7 +11,12 @@ size = 0x98000
   [[section.functions]]
   name = "recomp_entrypoint"
   vram = 0x80000400
-  size = 0x70
+  size = 0x50
+
+  [[section.functions]]
+  name = "boot_trampoline"
+  vram = 0x80000450
+  size = 0x20
 
   [[section.functions]]
   name = "boot_init"

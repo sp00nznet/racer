@@ -5,7 +5,8 @@
 #include "funcs.h"
 
 static FuncEntry section_funcs[] = {
-    { recomp_entrypoint, 0x0, 0x70 },
+    { recomp_entrypoint, 0x0, 0x50 },
+    { boot_trampoline, 0x50, 0x20 },
     { boot_init, 0x70, 0x9C },
     { set_debug_level, 0x120, 0xC },
     { set_debug_value, 0x12C, 0xC },
@@ -1415,7 +1416,7 @@ SectionTableEntry section_table[] = {
         0x80000400,  // ram_addr
         0x98000,  // size
         section_funcs,  // funcs
-        1402,  // num_funcs
+        1403,  // num_funcs
         nullptr,  // relocs (none for static code)
         0,  // num_relocs
         0,  // index
