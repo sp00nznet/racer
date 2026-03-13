@@ -68,9 +68,17 @@ target_include_directories(SWE1Racer PRIVATE
     ${N64_MODERN_RUNTIME_DIR}/librecomp/include      # librecomp headers
     ${N64_MODERN_RUNTIME_DIR}/ultramodern/include    # ultramodern headers
     ${RT64_DIR}/src                                   # RT64 headers
+    ${RT64_DIR}/src/contrib                           # RT64 contrib (json, im3d, etc.)
+    ${RT64_DIR}/src/contrib/hlslpp/include            # hlsl++
+    ${RT64_DIR}/src/contrib/plume                     # plume render interface
+    ${RT64_DIR}/src/contrib/imgui                     # imgui
+    ${RT64_DIR}/src/contrib/mupen64plus-core/src/api  # mupen64plus API types
     ${CMAKE_SOURCE_DIR}/RecompiledFuncs              # funcs.h
     ${CMAKE_SOURCE_DIR}/include
 )
+
+# RT64 requires these defines for its headers (normally set at directory scope)
+target_compile_definitions(SWE1Racer PRIVATE NOMINMAX HLSL_CPU FFX_GCC)
 
 target_link_libraries(SWE1Racer PRIVATE
     RecompiledFuncs
