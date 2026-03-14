@@ -37,27 +37,33 @@ No existing N64 decompilation exists for this game. We're flying blind through B
 | N64Recomp Integration | COMPLETE |
 | **Native Compilation (MSVC)** | **COMPLETE** |
 | **N64ModernRuntime Integration** | **COMPLETE** |
-| **libultra Function Identification (17 reimplemented)** | **COMPLETE** |
+| **libultra Function Identification (21 reimplemented)** | **COMPLETE** |
 | **Game Boot + Stable Execution** | **COMPLETE** |
+| **RSP Task Routing (osSpTaskLoad/StartGo)** | **COMPLETE** |
+| **osRecvMesg Thread Blocking Fix** | **IN PROGRESS** |
 | **RT64 Renderer Integration** | **IN PROGRESS** |
 | **SDL2 Window + Input** | **IN PROGRESS** |
-| Display List Generation | IN PROGRESS |
+| Display List Rendering | IN PROGRESS |
 | Audio Reimplementation | TODO |
 | Playable Build | THE DREAM |
 
-**Current Progress: Phase 4 - Game Boots and Runs!**
+**Current Progress: Phase 4 - RSP Task Routing & Thread Fix**
 
-*"It's working! IT'S WORKING!" - Anakin Skywalker*
+*"I've got a bad feeling about this." - Everyone, debugging thread scheduling*
 
-The game **boots and runs without crashing**. Threads are created, message queues pass messages, the heap initializes, and the main game loop ticks at ~60 FPS. We're waiting on display lists now.
+The game **boots and runs without crashing**. RSP task submission has been identified and routed through ultramodern's `submit_rsp_task` for RT64 rendering. A critical thread blocking bug was found: the game's real `osRecvMesg` was misidentified, causing the scheduler thread (priority 254) to spin-lock and starve all other game threads. Fix is in progress.
 
-- **1,385 functions** in the lookup table (878 symbols + ~540 auto-detected statics)
-- **17 libultra functions** identified and reimplemented via ultramodern (osCreateThread, osCreateMesgQueue, osRecvMesg, osSendMesg, osViSetMode, osPiStartDma, and more)
+- **1,381 functions** in the lookup table (878 symbols + ~500 auto-detected statics)
+- **21 libultra functions** identified and reimplemented via ultramodern:
+  - **NEW**: `osSpTaskLoad`, `osSpTaskStartGo` — game's custom RSP task loader identified and redirected
+  - **NEW**: `osRecvMesg` — game's REAL osRecvMesg found at 0x80087E80 (not the unused copy at 0x8008C3B0)
+  - Plus: osCreateThread, osCreateMesgQueue, osSendMesg, osViSetMode, osPiStartDma, and more
+- **RSP task flow decoded**: game bypasses standard `osSpTaskLoad` — uses custom implementation with raw SP DMA (`__osSpRawStartDma`), now intercepted
+- **Thread starvation bug found**: scheduler thread blocked forever on game's custom osRecvMesg (stubbed yield function = infinite spin at priority 254)
 - **PI handle initialization** replicated for stubbed boot code (COP0 exception handlers)
 - **SWE1Racer.exe** links against N64ModernRuntime (librecomp + ultramodern) + RT64
 - RT64 renderer initialized (D3D12 backend, RTX 5070 detected)
 - SDL2 window (1280x960), keyboard input, and event loop running
-- Game threads created and running (ultramodern thread management)
 - Audio frequency set to 48kHz (playback stubs - Phase 5 TODO)
 - Linker MAP file generation for crash debugging
 - Built with MSVC (Visual Studio 2022) and CMake

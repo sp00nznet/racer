@@ -3490,7 +3490,7 @@ size = 0x98000
   size = 0x110
 
   [[section.functions]]
-  name = "func_80087E80"
+  name = "osRecvMesg"
   vram = 0x80087E80
   size = 0x1FC
 
@@ -3707,12 +3707,12 @@ size = 0x98000
   size = 0x11C
 
   [[section.functions]]
-  name = "func_8008AFBC"
+  name = "osSpTaskLoad"
   vram = 0x8008AFBC
   size = 0x190
 
   [[section.functions]]
-  name = "func_8008B14C"
+  name = "osSpTaskStartGo"
   vram = 0x8008B14C
   size = 0x44
 
@@ -3804,7 +3804,7 @@ size = 0x98000
   size = 0x20
 
   [[section.functions]]
-  name = "osRecvMesg"
+  name = "osRecvMesg_unused_8008C3B0"
   vram = 0x8008C3B0
   size = 0x1A0
 
