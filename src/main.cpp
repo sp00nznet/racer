@@ -21,7 +21,9 @@
 #include "librecomp/game.hpp"
 #include "librecomp/overlays.hpp"
 #include "librecomp/rsp.hpp"
+#include "librecomp/addresses.hpp"
 #include "ultramodern/ultramodern.hpp"
+#include "ultramodern/ultra64.h"
 #include "ultramodern/renderer_context.hpp"
 #include "ultramodern/error_handling.hpp"
 #include "ultramodern/events.hpp"
@@ -67,8 +69,14 @@ static SDL_Window* g_window = nullptr;
 // The game uses standard Fast3D-derived microcode for graphics
 // and ABI microcode for audio
 RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
+    static uint32_t rsp_call_count = 0;
+    rsp_call_count++;
+    if (rsp_call_count <= 5 || (rsp_call_count % 60 == 0)) {
+        fprintf(stderr, "[SWE1R] get_rsp_microcode #%u: type=%u ucode=0x%08X data=0x%08X\n",
+                rsp_call_count, task->t.type,
+                (uint32_t)task->t.ucode, (uint32_t)task->t.ucode_data);
+    }
     // TODO: Identify SWE1R's specific microcode and return handlers
-    // For now, return nullptr (will cause RSP tasks to fail gracefully)
     return nullptr;
 }
 
@@ -227,6 +235,40 @@ std::string get_game_thread_name(const OSThread* t) {
 }
 
 // =============================================================================
+// Game Init Callback - initialize libultra state that stubbed boot code skips
+// =============================================================================
+
+void on_game_init(uint8_t* rdram, recomp_context* ctx) {
+    // The game's boot code at 0x8008D284 initializes the PI (cartridge ROM) handle
+    // and stores it at globals 0x800A7BC0 and 0x800A7FC0. That code is stubbed
+    // because it contains COP0 instructions. We replicate the initialization here.
+
+    // Initialize the PI handle struct at the pre-allocated RDRAM address
+    int32_t handle_addr = recomp::cart_handle; // 0x80800000
+    OSPiHandle* handle = (OSPiHandle*)(rdram + ((uint32_t)handle_addr - 0x80000000u));
+    memset(handle, 0, sizeof(OSPiHandle));
+    handle->type = 0; // PI_DOMAIN2 (cartridge)
+    handle->baseAddress = 0xB0000000; // phys_to_k1(0x10000000) = cartridge ROM base
+    handle->domain = 0;
+
+    // Store the handle pointer in the game's global variables (big-endian u32 writes)
+    // 0x800A7BC0 = __osCartRomHandle (used by PI access functions)
+    // 0x800A7FC0 = __osPiTable (PI device linked list head)
+    auto write32 = [&](uint32_t mips_addr, uint32_t value) {
+        *(uint32_t*)(rdram + (mips_addr - 0x80000000u)) = value;
+    };
+
+    write32(0x800A7BC0, (uint32_t)handle_addr);
+    write32(0x800A7FC0, (uint32_t)handle_addr);
+
+    // Self-link the handle's next pointer (linked list of one element)
+    // handle_addr = 0x80800000, so this writes to RDRAM offset 0x00800000 (8MB)
+    write32((uint32_t)handle_addr, (uint32_t)handle_addr); // handle->unused (next ptr) = self
+
+    printf("[SWE1R] PI handle initialized at 0x%08X\n", (uint32_t)handle_addr);
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
@@ -304,6 +346,7 @@ int main(int argc, char* argv[]) {
     game_entry.is_enabled = true;
     game_entry.entrypoint_address = (gpr)(int32_t)0x80000400; // Sign-extend for MEM macros
     game_entry.entrypoint = recomp_entrypoint;
+    game_entry.on_init_callback = on_game_init;
 
     // Register overlay/section tables
     recomp::overlays::overlay_section_table_data_t sections_data{};

@@ -91,4 +91,5 @@ target_link_libraries(SWE1Racer PRIVATE
 
 if(WIN32)
     target_link_libraries(SWE1Racer PRIVATE dxgi d3d12 d3dcompiler dbghelp)
+    target_link_options(SWE1Racer PRIVATE /MAP)
 endif()

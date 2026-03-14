@@ -33,16 +33,21 @@ stubs = [
     "cache_writeback_800887D0",
     "cache_inval_80088AD0",
     "func_8008C090",
-    "func_8008C100",
+    # func_8008C100 split: dispatch portion still stubbed (COP0 instructions)
+    "func_8008C100_dispatch",
     "func_8008C190",
     "func_8008C280",
-    "func_8008C390",
+    # func_8008C390 split: tail portion still stubbed
+    "func_8008C390_tail",
+    # osRecvMesg, osSendMesg, osGetCount: handled by N64Recomp reimplemented_funcs
     "func_8008C770",
     "func_8008C7B0",
-    "func_8008C930",
+    # func_8008C930 split: exception handler still stubbed
+    "func_8008C930_exception",
+    # __osDisableInt, __osRestoreInt: handled by N64Recomp reimplemented_funcs
     "func_8008CAC8",
     "func_8008D42C",
-    "func_8008D510",
+    # osViSetMode: handled by N64Recomp reimplemented_funcs
     "func_8008D554",
     "func_8008D5A8",
     "func_8008D5FC",
@@ -55,7 +60,9 @@ stubs = [
     "func_8008E074",
     "func_8008E420",
     "func_8008E54C",
-    "func_8008E9F4",
+    # func_8008E9F4 split: stub portion
+    "func_8008E9F4_stub",
+    # osSetEventMesg: handled by N64Recomp reimplemented_funcs
     "func_8008EADC",
     "func_8008EE04",
     "func_8008EEE4",
@@ -72,12 +79,11 @@ stubs = [
     "func_8008FEB0",
     "func_8008FF98",
     "func_800900E0",
-    "func_80090170",
+    # osSetIntMask: handled by N64Recomp reimplemented_funcs
     "func_80090200",
     "func_800902A0",
     "func_80090330",
-    "func_800903D0",
-    "func_80090450",
+    # osAiSetFrequency, osAiSetNextBuffer: handled by N64Recomp reimplemented_funcs
     "func_800905A0",
     "func_800905F8",
     "func_80090634",
@@ -112,9 +118,8 @@ stubs = [
     "func_80093E44",
     "func_80093FB4",
     "func_80094028",
-    "osViManager_candidate",
+    # osCreateViManager, osCreatePiManager: handled by N64Recomp reimplemented_funcs
     "osPiStartDma_candidate_800944E0",
-    "osPiManager_candidate_800945C0",
     "func_800947F0",
     "func_80094C80",
     "func_80094E44",
@@ -122,7 +127,7 @@ stubs = [
     "func_80095048",
     "func_800950F4",
     "osPiManager_candidate_800952AC",
-    "osPiStartDma_candidate_80095820",
+    # osPiStartDma: handled by N64Recomp reimplemented_funcs
     "func_800958DC",
     "func_80095990",
     "func_80095B68",
@@ -146,7 +151,6 @@ stubs = [
     "func_80097DC0",
     "func_80097E60",
     "func_80097F68",
-    "osGetCount_8008C550",
     "libultra_split_8008D12C",
     "libultra_split_8008D284",
     "libultra_split_8008D450",

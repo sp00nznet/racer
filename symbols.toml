@@ -13,15 +13,11 @@ size = 0x98000
   vram = 0x80000400
   size = 0x50
 
+  # boot_trampoline (0x450) falls through to boot_init (0x470) - must be one function
   [[section.functions]]
   name = "boot_trampoline"
   vram = 0x80000450
-  size = 0x20
-
-  [[section.functions]]
-  name = "boot_init"
-  vram = 0x80000470
-  size = 0x9C
+  size = 0xBC
 
   [[section.functions]]
   name = "set_debug_level"
@@ -3506,7 +3502,24 @@ size = 0x98000
   [[section.functions]]
   name = "func_800880B8"
   vram = 0x800880B8
-  size = 0xA4
+  size = 0x28
+
+  # osCreateMesgQueue: initializes OSMesgQueue struct (mtqueue, fullqueue, validCount, first, msg, msgCount)
+  # Was static_0_800880E0 inside func_800880B8. N64Recomp redirects to ultramodern's osCreateMesgQueue_recomp.
+  [[section.functions]]
+  name = "osCreateMesgQueue"
+  vram = 0x800880E0
+  size = 0x30
+
+  [[section.functions]]
+  name = "func_80088110"
+  vram = 0x80088110
+  size = 0x40
+
+  [[section.functions]]
+  name = "func_80088150"
+  vram = 0x80088150
+  size = 0x0C
 
   [[section.functions]]
   name = "func_8008815C"
@@ -3724,17 +3737,17 @@ size = 0x98000
   size = 0x15C
 
   [[section.functions]]
-  name = "os_init_system"
+  name = "osInitialize"
   vram = 0x8008B580
   size = 0x290
 
   [[section.functions]]
-  name = "os_create_mesg_queues"
+  name = "osCreateThread"
   vram = 0x8008B810
   size = 0x150
 
   [[section.functions]]
-  name = "os_create_threads"
+  name = "osStartThread"
   vram = 0x8008B960
   size = 0x150
 
@@ -3763,10 +3776,16 @@ size = 0x98000
   vram = 0x8008C090
   size = 0x70
 
+  # Split: func_8008C100 contains __osDispatchThread (0x50) + osGetCount (0x40)
   [[section.functions]]
-  name = "func_8008C100"
+  name = "func_8008C100_dispatch"
   vram = 0x8008C100
-  size = 0x90
+  size = 0x50
+
+  [[section.functions]]
+  name = "osGetCount"
+  vram = 0x8008C150
+  size = 0x40
 
   [[section.functions]]
   name = "func_8008C190"
@@ -3778,15 +3797,20 @@ size = 0x98000
   vram = 0x8008C280
   size = 0x110
 
+  # Split: func_8008C390 = tail code (0x20) + osRecvMesg (0x1A0)
   [[section.functions]]
-  name = "func_8008C390"
+  name = "func_8008C390_tail"
   vram = 0x8008C390
-  size = 0x1C0
+  size = 0x20
 
-  # osGetCount - MFC0 v0, Count(9); JR RA; NOP
-  # Split from func_8008C390 to prevent static_0_ auto-detection
   [[section.functions]]
-  name = "osGetCount_8008C550"
+  name = "osRecvMesg"
+  vram = 0x8008C3B0
+  size = 0x1A0
+
+  # Was misidentified as osGetCount — actually osSendMesg
+  [[section.functions]]
+  name = "osSendMesg"
   vram = 0x8008C550
   size = 0x220
 
@@ -3801,9 +3825,20 @@ size = 0x98000
   size = 0x180
 
   [[section.functions]]
-  name = "func_8008C930"
+  # Split: exception handler (0x150) + __osDisableInt (0x20) + __osRestoreInt (0x28)
+  name = "func_8008C930_exception"
   vram = 0x8008C930
-  size = 0x198
+  size = 0x150
+
+  [[section.functions]]
+  name = "__osDisableInt"
+  vram = 0x8008CA80
+  size = 0x20
+
+  [[section.functions]]
+  name = "__osRestoreInt"
+  vram = 0x8008CAA0
+  size = 0x28
 
   [[section.functions]]
   name = "func_8008CAC8"
@@ -3834,7 +3869,7 @@ size = 0x98000
   size = 0xC0
 
   [[section.functions]]
-  name = "func_8008D510"
+  name = "osViSetMode"
   vram = 0x8008D510
   size = 0x44
 
@@ -3899,9 +3934,15 @@ size = 0x98000
   size = 0x4A8
 
   [[section.functions]]
-  name = "func_8008E9F4"
+  # Split: jr ra stub (0x10) + osSetEventMesg (0xD8)
+  name = "func_8008E9F4_stub"
   vram = 0x8008E9F4
-  size = 0xE8
+  size = 0x10
+
+  [[section.functions]]
+  name = "osSetEventMesg"
+  vram = 0x8008EA04
+  size = 0xD8
 
   [[section.functions]]
   name = "func_8008EADC"
@@ -3984,7 +4025,7 @@ size = 0x98000
   size = 0x90
 
   [[section.functions]]
-  name = "func_80090170"
+  name = "osSetIntMask"
   vram = 0x80090170
   size = 0x90
 
@@ -4004,12 +4045,12 @@ size = 0x98000
   size = 0xA0
 
   [[section.functions]]
-  name = "func_800903D0"
+  name = "osAiSetFrequency"
   vram = 0x800903D0
   size = 0x80
 
   [[section.functions]]
-  name = "func_80090450"
+  name = "osAiSetNextBuffer"
   vram = 0x80090450
   size = 0x150
 
@@ -4202,7 +4243,7 @@ size = 0x98000
   size = 0x1B8
 
   [[section.functions]]
-  name = "osViManager_candidate"
+  name = "osCreateViManager"
   vram = 0x800941E0
   size = 0x300
 
@@ -4212,7 +4253,7 @@ size = 0x98000
   size = 0xE0
 
   [[section.functions]]
-  name = "osPiManager_candidate_800945C0"
+  name = "osCreatePiManager"
   vram = 0x800945C0
   size = 0x230
 
@@ -4252,7 +4293,7 @@ size = 0x98000
   size = 0x574
 
   [[section.functions]]
-  name = "osPiStartDma_candidate_80095820"
+  name = "osPiStartDma"
   vram = 0x80095820
   size = 0xBC
 

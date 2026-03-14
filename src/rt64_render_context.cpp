@@ -148,6 +148,12 @@ public:
     void send_dl(const OSTask* task) override {
         if (!app_ || !is_valid_) return;
 
+        dl_count_++;
+        if (dl_count_ <= 5 || (dl_count_ % 60 == 0)) {
+            printf("[SWE1R] send_dl #%u: data_ptr=0x%08X type=%u\n",
+                   dl_count_, (uint32_t)task->t.data_ptr, task->t.type);
+        }
+
         // Get the display list address from the task
         // data_ptr is a MIPS virtual address (0x80XXXXXX), convert to physical
         uint32_t dl_address = task->t.data_ptr & 0x1FFFFFFF;
@@ -156,6 +162,12 @@ public:
 
     void update_screen() override {
         if (!app_ || !is_valid_) return;
+
+        screen_count_++;
+        if (screen_count_ <= 5 || (screen_count_ % 60 == 0)) {
+            printf("[SWE1R] update_screen #%u\n", screen_count_);
+        }
+
         app_->updateScreen();
     }
 
@@ -183,6 +195,8 @@ private:
     ultramodern::renderer::ViRegs* vi_regs_ = nullptr;
     std::unique_ptr<RT64::Application> app_;
     std::vector<uint8_t> rom_header_;
+    uint32_t dl_count_ = 0;
+    uint32_t screen_count_ = 0;
 };
 
 // Factory function
