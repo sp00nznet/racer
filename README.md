@@ -28,32 +28,38 @@ No existing N64 decompilation exists for this game. We're flying blind through B
 | Milestone | Status |
 |-----------|--------|
 | ROM Analysis | COMPLETE |
-| Function Discovery (870+ functions) | COMPLETE |
+| Function Discovery (878+ functions) | COMPLETE |
 | Symbol File Generation | COMPLETE |
 | N64Recomp Config | COMPLETE |
 | Debug Tooling (analyzer, differ, strings, progress) | COMPLETE |
 | Build System (Make + CMake) | COMPLETE |
-| libultra Stubbing (125 functions) | COMPLETE |
+| libultra Stubbing (~120 functions) | COMPLETE |
 | N64Recomp Integration | COMPLETE |
 | **Native Compilation (MSVC)** | **COMPLETE** |
 | **N64ModernRuntime Integration** | **COMPLETE** |
-| Function Naming | IN PROGRESS |
+| **libultra Function Identification (17 reimplemented)** | **COMPLETE** |
+| **Game Boot + Stable Execution** | **COMPLETE** |
 | **RT64 Renderer Integration** | **IN PROGRESS** |
 | **SDL2 Window + Input** | **IN PROGRESS** |
+| Display List Generation | IN PROGRESS |
 | Audio Reimplementation | TODO |
 | Playable Build | THE DREAM |
 
-**Current Progress: Phase 4 - RT64 Integration (In Progress)**
+**Current Progress: Phase 4 - Game Boots and Runs!**
 
-The game is recompiled and linking against all major runtime components:
-- **1,402 functions** recompiled (870 from symbols + 532 auto-detected)
-- **551,906 lines** of generated C code
-- **125 libultra/OS functions** stubbed for ultramodern reimplementation
+*"It's working! IT'S WORKING!" - Anakin Skywalker*
+
+The game **boots and runs without crashing**. Threads are created, message queues pass messages, the heap initializes, and the main game loop ticks at ~60 FPS. We're waiting on display lists now.
+
+- **1,385 functions** in the lookup table (878 symbols + ~540 auto-detected statics)
+- **17 libultra functions** identified and reimplemented via ultramodern (osCreateThread, osCreateMesgQueue, osRecvMesg, osSendMesg, osViSetMode, osPiStartDma, and more)
+- **PI handle initialization** replicated for stubbed boot code (COP0 exception handlers)
 - **SWE1Racer.exe** links against N64ModernRuntime (librecomp + ultramodern) + RT64
-- RT64 renderer compiles as static library (D3D12/Vulkan backend)
-- SDL2 window creation, keyboard input, and event loop implemented
-- Placeholder RendererContext bridges ultramodern to RT64
-- Audio stubs prevent stalls (Phase 5 TODO)
+- RT64 renderer initialized (D3D12 backend, RTX 5070 detected)
+- SDL2 window (1280x960), keyboard input, and event loop running
+- Game threads created and running (ultramodern thread management)
+- Audio frequency set to 48kHz (playback stubs - Phase 5 TODO)
+- Linker MAP file generation for crash debugging
 - Built with MSVC (Visual Studio 2022) and CMake
 
 ## ROM Info
@@ -68,7 +74,7 @@ The game is recompiled and linking against all major runtime components:
 | CRC2 | 0x6556A98B |
 | ROM Size | 32 MB |
 | Code Size | ~608 KB (0x1000 - 0x99000) |
-| Functions | 870 (recompiled) |
+| Functions | 878 symbols + ~540 auto-detected |
 
 ## Getting Started
 
@@ -154,14 +160,14 @@ racer/
 ├── Makefile               # Analysis & debug build system
 ├── CMakeLists.txt         # CMake build for native executable
 ├── recomp.toml            # N64Recomp configuration
-├── symbols.toml           # Function symbols (870 functions)
+├── symbols.toml           # Function symbols (878 functions, 17 libultra identified)
 ├── baserom.z64            # Your ROM goes here (not tracked)
 ├── tools/
 │   ├── rom_analyzer.py    # ROM analysis & symbol generation
 │   ├── func_differ.py     # Function disassembler
 │   ├── string_dumper.py   # String extraction & categorization
 │   ├── progress.py        # Progress tracker
-│   ├── libultra_identify.py # libultra function pattern matcher
+│   ├── identify_libultra.py # libultra function pattern matcher (MIPS instruction matching)
 │   ├── fix_statics.py     # Auto-fix static_0_ sub-function errors
 │   └── gen_lookup_table.py # Generate function lookup table
 ├── src/
@@ -224,6 +230,6 @@ This project does not include any copyrighted material. You must provide your ow
 
 *"I have a bad feeling about this." - Everyone in Star Wars, at some point*
 
-*"It's working! IT'S WORKING!" - What we'll say when the first frame renders*
+*"It's working! IT'S WORKING!" - What we said when the game booted (now we need the first frame to render)*
 
 *"Your focus determines your reality." - Qui-Gon Jinn (also good advice for debugging recompiled MIPS)*
