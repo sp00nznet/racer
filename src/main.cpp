@@ -50,6 +50,18 @@ extern void swe1r_queue_samples(int16_t* samples, size_t num_samples);
 extern size_t swe1r_get_frames_remaining();
 extern void swe1r_set_frequency(uint32_t freq);
 
+// SI DMA stub: the game's __osSiRawStartDma is COP0/MMIO based and can't be recompiled.
+// It starts a serial interface DMA which triggers an SI interrupt when complete.
+// We immediately send the SI completion event since there's no actual hardware to wait for.
+extern "C" void __osSiRawStartDma_recomp(uint8_t* rdram, recomp_context* ctx) {
+    // args: a0 = direction (0=read, 1=write), a1 = DRAM buffer address
+    printf("[si] __osSiRawStartDma(dir=%d, buf=0x%08X) -> sending SI event\n",
+        (int32_t)ctx->r4, (uint32_t)ctx->r5);
+    // Immediately send SI completion event via ultramodern
+    ultramodern::send_si_message();
+    ctx->r2 = 0; // success
+}
+
 // =============================================================================
 // ROM Hash: Star Wars Episode I: Racer (US)
 // CRC1: 0x72F70398  CRC2: 0x6556A98B
@@ -266,6 +278,47 @@ void on_game_init(uint8_t* rdram, recomp_context* ctx) {
     write32((uint32_t)handle_addr, (uint32_t)handle_addr); // handle->unused (next ptr) = self
 
     printf("[SWE1R] PI handle initialized at 0x%08X\n", (uint32_t)handle_addr);
+
+    // Initialize VI state for the scheduler thread.
+    // The scheduler (func_8008BC30) calls static_0_800941D0 which reads a pointer
+    // from 0x800A7F50 pointing to the "current VI mode" struct. It uses:
+    //   +0x02 (halfword): retrace count — how many VI retraces before sending a response
+    //   +0x10 (word): response queue — where to send the "frame done" message
+    // osCreateViManager normally sets this up, but it's stubbed in the recomp.
+    // Without this, the scheduler sends responses to its own queue (feedback loop)
+    // and never yields to the game thread.
+    //
+    // We create a fake VI state at 0x800A7F00 (unused BSS near the pointer) and a
+    // "sink" queue at 0x800A7E80 that absorbs the scheduler's responses.
+
+    // Create the sink queue: osCreateMesgQueue(queue=0x800A7E80, buf=0x800A7E60, count=8)
+    // We can't call osCreateMesgQueue_recomp here (no ctx), so write the struct directly.
+    // OSMesgQueue layout (big-endian):
+    //   +0x00: mtqueue (PTR) = 0 (unused)
+    //   +0x04: fullqueue (PTR) = 0 (unused)
+    //   +0x08: validCount (s32) = 0
+    //   +0x0C: first (s32) = 0
+    //   +0x10: msgCount (s32) = 8
+    //   +0x14: msg (PTR) = 0x800A7E60 (buffer)
+    write32(0x800A7E80 + 0x00, 0);
+    write32(0x800A7E80 + 0x04, 0);
+    write32(0x800A7E80 + 0x08, 0);
+    write32(0x800A7E80 + 0x0C, 0);
+    write32(0x800A7E80 + 0x10, 8);
+    write32(0x800A7E80 + 0x14, 0x800A7E60);
+
+    // Create fake VI state at 0x800A7F00
+    // RDRAM uses native word order with XOR byte-swapping for sub-word access.
+    // MEM_W reads/writes uint32_t directly. MEM_HU(0x02, base) reads the lower
+    // halfword of the word at base. So to set the halfword at +0x02 = 1,
+    // we write the word at +0x00 = 0x00000001 (lower half = 1, upper half = 0).
+    memset(rdram + (0x800A7F00 - 0x80000000u), 0, 0x20);
+    write32(0x800A7F00, 0x00000001);  // +0x00 word: lower halfword (+0x02) = retrace count 1
+    write32(0x800A7F10, 0x800A7E80);  // +0x10: response queue = sink queue
+
+    // Point the VI state pointer to our struct
+    write32(0x800A7F50, 0x800A7F00);
+    printf("[SWE1R] VI state initialized at 0x800A7F00, sink queue at 0x800A7E80\n");
 }
 
 // =============================================================================

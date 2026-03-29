@@ -32,7 +32,7 @@ stubs = [
     "static_0_80087CC0",
     "cache_writeback_800887D0",
     "cache_inval_80088AD0",
-    "func_8008C090",
+    # osViSetEvent at 0x8008C090: renamed and handled by N64Recomp reimplemented_funcs
     # func_8008C100 split: dispatch portion still stubbed (COP0 instructions)
     "func_8008C100_dispatch",
     "func_8008C190",
@@ -62,7 +62,8 @@ stubs = [
     "func_8008E54C",
     # func_8008E9F4 split: stub portion
     "func_8008E9F4_stub",
-    # osSetEventMesg: handled by N64Recomp reimplemented_funcs
+    # osSetEventMesg at 0x8008AE30: handled by N64Recomp reimplemented_funcs (game's custom version)
+    # osSetEventMesg_unused_8008EA04: dead standard libultra copy (zero callers)
     "func_8008EADC",
     "func_8008EE04",
     "func_8008EEE4",
@@ -88,8 +89,8 @@ stubs = [
     "func_800905F8",
     "func_80090634",
     "func_80090660",
-    "func_800906F0",
-    "osSi_func",
+    # osSetTimer at 0x800906F0: handled by N64Recomp reimplemented_funcs
+    # __osSiRawStartDma at 0x800907D0: handled by N64Recomp reimplemented_funcs
     "func_80090880",
     "func_80090960",
     "func_80090A10",
