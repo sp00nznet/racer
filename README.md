@@ -37,35 +37,39 @@ No existing N64 decompilation exists for this game. We're flying blind through B
 | N64Recomp Integration | COMPLETE |
 | **Native Compilation (MSVC)** | **COMPLETE** |
 | **N64ModernRuntime Integration** | **COMPLETE** |
-| **libultra Function Identification (21 reimplemented)** | **COMPLETE** |
+| **libultra Function Identification (25 reimplemented)** | **COMPLETE** |
 | **Game Boot + Stable Execution** | **COMPLETE** |
 | **RSP Task Routing (osSpTaskLoad/StartGo)** | **COMPLETE** |
-| **osRecvMesg Thread Blocking Fix** | **IN PROGRESS** |
+| **osRecvMesg Thread Blocking Fix** | **COMPLETE** |
+| **Event System Wiring (VI, SI, Timer)** | **COMPLETE** |
+| **Thread Scheduling Fixes** | **COMPLETE** |
+| **Game Thread Boot + Controller Init** | **IN PROGRESS** |
 | **RT64 Renderer Integration** | **IN PROGRESS** |
-| **SDL2 Window + Input** | **IN PROGRESS** |
-| Display List Rendering | IN PROGRESS |
+| Display List Rendering | TODO |
 | Audio Reimplementation | TODO |
 | Playable Build | THE DREAM |
 
-**Current Progress: Phase 4 - RSP Task Routing & Thread Fix**
+**Current Progress: Phase 5 - Game Thread Running, Event System Wired**
 
-*"I've got a bad feeling about this." - Everyone, debugging thread scheduling*
+*"It's working! IT'S WORKING!" - Anakin, after the game thread finally boots*
 
-The game **boots and runs without crashing**. RSP task submission has been identified and routed through ultramodern's `submit_rsp_task` for RT64 rendering. A critical thread blocking bug was found: the game's real `osRecvMesg` was misidentified, causing the scheduler thread (priority 254) to spin-lock and starve all other game threads. Fix is in progress.
+The **game thread now boots and initializes**. All three major threads are running: the scheduler (priority 254), the init thread (priority 10), and the game thread (priority 10). The game's custom event system has been fully decoded and wired to ultramodern's event delivery. Controller initialization passes the SI DMA phase but crashes reading uninitialized PIF data — next up is implementing proper controller response data.
 
-- **1,381 functions** in the lookup table (878 symbols + ~500 auto-detected statics)
-- **21 libultra functions** identified and reimplemented via ultramodern:
-  - **NEW**: `osSpTaskLoad`, `osSpTaskStartGo` — game's custom RSP task loader identified and redirected
-  - **NEW**: `osRecvMesg` — game's REAL osRecvMesg found at 0x80087E80 (not the unused copy at 0x8008C3B0)
+- **1,378 functions** in the lookup table (878 symbols + ~500 auto-detected statics)
+- **25 libultra functions** identified and reimplemented via ultramodern:
+  - **Phase 5 NEW**: `osSetEventMesg` (0x8008AE30), `osViSetEvent` (0x8008C090), `osSetTimer` (0x800906F0), `__osSiRawStartDma` (0x800907D0)
+  - Phase 4: `osSpTaskLoad`, `osSpTaskStartGo`, `osRecvMesg` (game's real copy at 0x80087E80)
   - Plus: osCreateThread, osCreateMesgQueue, osSendMesg, osViSetMode, osPiStartDma, and more
-- **RSP task flow decoded**: game bypasses standard `osSpTaskLoad` — uses custom implementation with raw SP DMA (`__osSpRawStartDma`), now intercepted
-- **Thread starvation bug found**: scheduler thread blocked forever on game's custom osRecvMesg (stubbed yield function = infinite spin at priority 254)
-- **PI handle initialization** replicated for stubbed boot code (COP0 exception handlers)
+- **Event system fully decoded**: game uses custom `osSetEventMesg` with standard event IDs (VI=7, SP=4, DP=9, SI=5, PI=8, PRENMI=14). Forwarded to ultramodern's event delivery
+- **VI event bootstrapping**: `osSetEventMesg(OS_EVENT_VI)` forwards to `osViSetEvent` for ultramodern's VI thread to deliver retraces
+- **VI state initialization**: scheduler reads from uninitialized struct at 0x800A7F50 (osCreateViManager is stubbed). Manually initialized with sink queue to prevent feedback loop
+- **Thread scheduling fixes** (N64ModernRuntime patches):
+  - `pause_self` now yields to equal-priority threads (was only yielding to higher)
+  - `run_next_thread_and_wait` idles on external messages when running queue is empty (was crashing)
+- **SI DMA stub**: `__osSiRawStartDma` sends immediate SI completion event (needs actual PIF response data)
 - **SWE1Racer.exe** links against N64ModernRuntime (librecomp + ultramodern) + RT64
 - RT64 renderer initialized (D3D12 backend, RTX 5070 detected)
 - SDL2 window (1280x960), keyboard input, and event loop running
-- Audio frequency set to 48kHz (playback stubs - Phase 5 TODO)
-- Linker MAP file generation for crash debugging
 - Built with MSVC (Visual Studio 2022) and CMake
 
 ## ROM Info
@@ -236,6 +240,6 @@ This project does not include any copyrighted material. You must provide your ow
 
 *"I have a bad feeling about this." - Everyone in Star Wars, at some point*
 
-*"It's working! IT'S WORKING!" - What we said when the game booted (now we need the first frame to render)*
+*"It's working! IT'S WORKING!" - What we said when the game thread finally booted (Phase 5)*
 
 *"Your focus determines your reality." - Qui-Gon Jinn (also good advice for debugging recompiled MIPS)*
