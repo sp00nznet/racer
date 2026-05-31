@@ -43,15 +43,30 @@ No existing N64 decompilation exists for this game. We're flying blind through B
 | **osRecvMesg Thread Blocking Fix** | **COMPLETE** |
 | **Event System Wiring (VI, SI, Timer)** | **COMPLETE** |
 | **Thread Scheduling Fixes** | **COMPLETE** |
-| **Game Thread Boot + Controller Init** | **IN PROGRESS** |
+| **Game Thread Boot + Controller Init** | **COMPLETE** |
+| **Split-Function Fallthrough Auto-Fix (143 funcs)** | **COMPLETE** |
+| **Full Boot → Stable Main Loop (no crashes)** | **COMPLETE** |
+| **PI DMA / Asset Loading** | **COMPLETE** |
+| **RSP Task Submission (audio + graphics)** | **COMPLETE** |
+| **Display Lists Reach RT64 (processed)** | **COMPLETE** |
 | **RT64 Renderer Integration** | **IN PROGRESS** |
-| Display List Rendering | TODO |
+| Visible Frame Output | IN PROGRESS |
 | Audio Reimplementation | TODO |
 | Playable Build | THE DREAM |
 
-**Current Progress: Phase 5 - Game Thread Running, Event System Wired**
+**Current Progress: Phase 7 - Display Lists Are Reaching the Renderer**
 
-*"It's working! IT'S WORKING!" - Anakin, after the game thread finally boots*
+*"Now THIS is podracing!"*
+
+The game now boots, **loads its assets from ROM via DMA**, spins up the RSP task pipeline, and **submits graphics display lists that RT64 accepts and processes**. Getting here meant bypassing the stubbed PI-manager thread (routing the game's `osPiStartDma` to the runtime's synchronous DMA), no-op'ing audio RSP tasks so the game proceeds to graphics, splitting a function that was being called through a pointer, un-stubbing a wrongly-stubbed string routine, and — the final piece — calling RT64's `loadUCodeGBI` before `processDisplayLists` so the renderer knows the microcode. The game thread now runs deep into per-frame logic. Still chasing the next game-logic crash and confirming pixels actually hit the screen, but the whole boot-to-render spine is connected.
+
+---
+
+**Previous milestone: Phase 6 - The Game Boots and Runs (no crashes!)**
+
+*"It's working! IT'S WORKING!" - Anakin, after the game finally booted clean*
+
+The game now **boots all the way to a stable main loop and runs indefinitely without crashing** - all four OS threads, the full event system (SP/DP/VI/SI/PI/PRENMI), and controller init come up, and VI retraces tick steadily at 60Hz. The breakthrough was an automated fix for **143 split-function fallthroughs**: where N64Recomp splits one MIPS function in two, the first half ran off its end without calling the second half, leaving globals uninitialized and crashing the game later. `tools/fix_fallthroughs.py` chains every such function to its continuation in one pass (re-run it after each recompile). Next up: getting display lists to RT64 so there's a picture to go with the podracing.
 
 The **game thread now boots and initializes**. All three major threads are running: the scheduler (priority 254), the init thread (priority 10), and the game thread (priority 10). The game's custom event system has been fully decoded and wired to ultramodern's event delivery. Controller initialization passes the SI DMA phase but crashes reading uninitialized PIF data — next up is implementing proper controller response data.
 
@@ -231,6 +246,7 @@ Unlike emulation, static recompilation converts every MIPS instruction into equi
 - [N64ModernRuntime](https://github.com/N64Recomp/N64ModernRuntime) - Runtime library for recompiled games
 - [OpenSWE1R](https://github.com/OpenSWE1R) - PC version reverse engineering (different codebase, but useful reference)
 - [SW_RACER_RE](https://github.com/tim-tim707/SW_RACER_RE) - PC version decompilation
+- [HarvestMoon64Recomp](https://github.com/HarvestMoon64Recomp/HarvestMoon64Recomp) (GPL-3.0) - reference for the `RECOMP_PATCH` mod framework, libultra-level controller polling, game-spin-loop yielding, and the `n_aspMain` RSP audio recompile workflow. Techniques referenced; no code copied (their project is decomp-backed and GPL-3.0).
 
 ## Legal
 

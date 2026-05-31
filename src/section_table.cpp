@@ -337,8 +337,8 @@ static FuncEntry section_funcs[] = {
     { func_80039828, 0x39428, 0x68 },
     { func_80039890, 0x39490, 0x30 },
     { func_800398C0, 0x394C0, 0x138 },
-    { func_800399F8, 0x395F8, 0x40 },
-    { func_80039A38, 0x39638, 0x138 },
+    { func_800399F8, 0x395F8, 0x38 },
+    { func_80039A38, 0x39630, 0x140 },
     { func_80039B70, 0x39770, 0x1C4 },
     { func_80039D34, 0x39934, 0x18C },
     { func_80039EC0, 0x39AC0, 0x580 },
@@ -493,7 +493,8 @@ static FuncEntry section_funcs[] = {
     { func_8005B708, 0x5B308, 0x5C },
     { func_8005B764, 0x5B364, 0xAC },
     { func_8005B810, 0x5B410, 0xA00 },
-    { func_8005C210, 0x5BE10, 0xEFC },
+    { func_8005C210, 0x5BE10, 0x9C8 },
+    { func_8005CBD8, 0x5C7D8, 0x534 },
     { func_8005D10C, 0x5CD0C, 0x218 },
     { func_8005D324, 0x5CF24, 0x888 },
     { func_8005DBAC, 0x5D7AC, 0x5F8 },
@@ -723,8 +724,8 @@ static FuncEntry section_funcs[] = {
     { func_80089730, 0x89330, 0x60 },
     { func_80089790, 0x89390, 0x70 },
     { func_80089800, 0x89400, 0x70 },
-    { func_80089870, 0x89470, 0x178 },
-    { func_800899E8, 0x895E8, 0xC8 },
+    { func_80089870, 0x89470, 0x170 },
+    { func_800899E8, 0x895E0, 0xD0 },
     { func_80089AB0, 0x896B0, 0x100 },
     { func_80089BB0, 0x897B0, 0x94 },
     { func_80089C44, 0x89844, 0x8C },
@@ -750,10 +751,12 @@ static FuncEntry section_funcs[] = {
     { func_8008BDC0, 0x8B9C0, 0x1F0 },
     { func_8008BFB0, 0x8BBB0, 0xE0 },
     { func_8008C100_dispatch, 0x8BD00, 0x50 },
+    { func_8008C150, 0x8BD50, 0x40 },
     { func_8008C190, 0x8BD90, 0xF0 },
     { func_8008C280, 0x8BE80, 0x110 },
     { func_8008C390_tail, 0x8BF90, 0x20 },
     { osRecvMesg_unused_8008C3B0, 0x8BFB0, 0x1A0 },
+    { func_8008C560, 0x8C160, 0x210 },
     { func_8008C770, 0x8C370, 0x40 },
     { func_8008C7B0, 0x8C3B0, 0x180 },
     { func_8008C930_exception, 0x8C530, 0x150 },
@@ -1166,7 +1169,6 @@ static FuncEntry section_funcs[] = {
     { static_0_80039914, 0x39514, 0x0 },  // auto-detected
     { static_0_80039984, 0x39584, 0x0 },  // auto-detected
     { static_0_800399F0, 0x395F0, 0x0 },  // auto-detected
-    { static_0_80039A30, 0x39630, 0x0 },  // auto-detected
     { static_0_80039CD8, 0x398D8, 0x0 },  // auto-detected
     { static_0_8003A4A0, 0x3A0A0, 0x0 },  // auto-detected
     { static_0_8003A50C, 0x3A10C, 0x0 },  // auto-detected
@@ -1350,7 +1352,6 @@ static FuncEntry section_funcs[] = {
     { static_0_80089570, 0x89170, 0x0 },  // auto-detected
     { static_0_80089590, 0x89190, 0x0 },  // auto-detected
     { static_0_800895E0, 0x891E0, 0x0 },  // auto-detected
-    { static_0_800899E0, 0x895E0, 0x0 },  // auto-detected
     { static_0_80089C34, 0x89834, 0x0 },  // auto-detected
     { static_0_80089CC0, 0x898C0, 0x0 },  // auto-detected
     { static_0_8008A750, 0x8A350, 0x0 },  // auto-detected
@@ -1361,6 +1362,7 @@ static FuncEntry section_funcs[] = {
     { static_0_8008ADA0, 0x8A9A0, 0x0 },  // auto-detected
     { static_0_8008BF3C, 0x8BB3C, 0x0 },  // auto-detected
     { static_0_8008C2F0, 0x8BEF0, 0x0 },  // auto-detected
+    { static_0_8008C344, 0x8BF44, 0x0 },  // auto-detected
     { static_0_8008C738, 0x8C338, 0x0 },  // auto-detected
     { static_0_8008C900, 0x8C500, 0x0 },  // auto-detected
     { static_0_8008CAC0, 0x8C6C0, 0x0 },  // auto-detected
@@ -1390,7 +1392,7 @@ SectionTableEntry section_table[] = {
         0x80000400,  // ram_addr
         0x98000,  // size
         section_funcs,  // funcs
-        1377,  // num_funcs
+        1379,  // num_funcs
         nullptr,  // relocs (none for static code)
         0,  // num_relocs
         0,  // index

@@ -9,6 +9,10 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
+#include <algorithm>
+#include <fstream>
+#include <sstream>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -50,14 +54,52 @@ extern void swe1r_queue_samples(int16_t* samples, size_t num_samples);
 extern size_t swe1r_get_frames_remaining();
 extern void swe1r_set_frequency(uint32_t freq);
 
-// SI DMA stub: the game's __osSiRawStartDma is COP0/MMIO based and can't be recompiled.
-// It starts a serial interface DMA which triggers an SI interrupt when complete.
-// We immediately send the SI completion event since there's no actual hardware to wait for.
+// RDRAM base — captured in on_game_init so the crash handler can translate
+// native fault addresses back into N64 virtual addresses.
+static uint8_t* g_rdram_base = nullptr;
+
+// SI DMA: the game's __osSiRawStartDma is COP0/MMIO based and can't be
+// recompiled. It moves a 64-byte block between DRAM and PIF RAM and raises an
+// SI interrupt on completion.
+//
+//   a0 = direction (1 = DRAM->PIF write, 0 = PIF->DRAM read)
+//   a1 = DRAM buffer address
+//
+// There is no PIF hardware here, so on a read we synthesize the controller
+// status block the game's detection code (func_800899E8) expects: 8 bytes per
+// channel, 4 channels. Controller 0 is reported present (standard pad, no pak);
+// channels 1-3 report "no controller" via the error bits in byte 2.
+//   byte0 pad | byte1 txsize | byte2 rxsize/error | byte3 cmd
+//   byte4 type_lo | byte5 type_hi | byte6 status | byte7 pad
+// The parser checks (byte2 & 0xC0) for an error, reads type from byte4/5 and
+// the pak/status flag from byte6.
 extern "C" void __osSiRawStartDma_recomp(uint8_t* rdram, recomp_context* ctx) {
-    // args: a0 = direction (0=read, 1=write), a1 = DRAM buffer address
-    printf("[si] __osSiRawStartDma(dir=%d, buf=0x%08X) -> sending SI event\n",
-        (int32_t)ctx->r4, (uint32_t)ctx->r5);
-    // Immediately send SI completion event via ultramodern
+    int32_t  dir = (int32_t)ctx->r4;
+    uint32_t buf = (uint32_t)ctx->r5;
+
+    if (dir == 0 && buf != 0) {
+        // PIF -> DRAM read: fill in the controller status response.
+        // The block is word-aligned, so big-endian-packed word writes land the
+        // bytes correctly for the recompiled MEM_B (XOR 3) accessors.
+        auto w32 = [&](uint32_t addr, uint32_t value) {
+            *(uint32_t*)(rdram + (addr - 0x80000000u)) = value;
+        };
+        for (int ch = 0; ch < 4; ch++) {
+            uint32_t c = buf + ch * 8;
+            if (ch == 0) {
+                w32(c + 0, 0xFF010300u); // pad, tx=1, rx=3 (no error), cmd=0
+                w32(c + 4, 0x050000FFu); // type=0x0005 (standard pad), no pak
+            } else {
+                w32(c + 0, 0xFF018300u); // byte2=0x83 -> error bit set
+                w32(c + 4, 0xFFFFFFFFu); // no controller on this channel
+            }
+        }
+        printf("[si] __osSiRawStartDma read  -> controller status written to 0x%08X\n", buf);
+    } else {
+        printf("[si] __osSiRawStartDma write -> dir=%d buf=0x%08X (acked)\n", dir, buf);
+    }
+
+    // No real hardware to wait on — signal SI completion immediately.
     ultramodern::send_si_message();
     ctx->r2 = 0; // success
 }
@@ -77,19 +119,26 @@ static SDL_Window* g_window = nullptr;
 // RSP Callbacks
 // =============================================================================
 
-// SWE1R RSP microcode identification
-// The game uses standard Fast3D-derived microcode for graphics
-// and ABI microcode for audio
+// No-op RSP microcode. We don't yet have SWE1R's recompiled audio microcode
+// (that would come from N64Recomp's RSPRecomp, like pokemonsnap's aspMain).
+// Returning nullptr makes ultramodern's run_task abort the whole process, so
+// instead we pretend audio tasks completed (RspExitReason::Broke). Result: no
+// sound yet, but the game proceeds — and graphics tasks (M_GFXTASK) never reach
+// here anyway; submit_rsp_task routes those straight to the RT64 renderer.
+static RspExitReason swe1r_noop_ucode(uint8_t* /*rdram*/, uint32_t /*ucode_addr*/) {
+    return RspExitReason::Broke;
+}
+
 RspUcodeFunc* get_rsp_microcode(const OSTask* task) {
     static uint32_t rsp_call_count = 0;
     rsp_call_count++;
-    if (rsp_call_count <= 5 || (rsp_call_count % 60 == 0)) {
+    if (rsp_call_count <= 5 || (rsp_call_count % 120 == 0)) {
         fprintf(stderr, "[SWE1R] get_rsp_microcode #%u: type=%u ucode=0x%08X data=0x%08X\n",
                 rsp_call_count, task->t.type,
                 (uint32_t)task->t.ucode, (uint32_t)task->t.ucode_data);
     }
-    // TODO: Identify SWE1R's specific microcode and return handlers
-    return nullptr;
+    // Only non-graphics (audio) tasks reach here; no-op them for now.
+    return swe1r_noop_ucode;
 }
 
 // =============================================================================
@@ -251,6 +300,10 @@ std::string get_game_thread_name(const OSThread* t) {
 // =============================================================================
 
 void on_game_init(uint8_t* rdram, recomp_context* ctx) {
+    // Capture the RDRAM base so the crash handler can map native fault
+    // addresses back to N64 virtual addresses.
+    g_rdram_base = rdram;
+
     // The game's boot code at 0x8008D284 initializes the PI (cartridge ROM) handle
     // and stores it at globals 0x800A7BC0 and 0x800A7FC0. That code is stubbed
     // because it contains COP0 instructions. We replicate the initialization here.
@@ -319,6 +372,78 @@ void on_game_init(uint8_t* rdram, recomp_context* ctx) {
     // Point the VI state pointer to our struct
     write32(0x800A7F50, 0x800A7F00);
     printf("[SWE1R] VI state initialized at 0x800A7F00, sink queue at 0x800A7E80\n");
+
+    // osMemSize at 0x80000318 — IPL3 normally writes the detected RDRAM size
+    // here, but we stub IPL3. SWE1R requires the Expansion Pak, so report 8MB.
+    // The framebuffer allocator (func_80039A38) reads this to size buffers.
+    // 0x318 is below the game's BSS clear (0x520+), so this value survives;
+    // the framebuffer pointer table at 0x80114530 must NOT be seeded here, as
+    // it sits inside the cleared range and is populated by func_80039A38.
+    write32(0x80000318, 0x00800000);
+    printf("[SWE1R] osMemSize=0x800000 written at 0x80000318\n");
+}
+
+// =============================================================================
+// Map-file symbolizer
+//
+// Release builds have no useful PDB symbols for the recompiled funcs (SymFromAddr
+// returns garbage like "wcsrchr"). The linker .map file, however, lists every
+// func_XXXX with its preferred VA. We parse it at startup and resolve crash
+// stack frames against it — automating the manual map lookup used during Phase 5.
+// =============================================================================
+struct MapSym { uint32_t rva; std::string name; };
+static std::vector<MapSym> g_map_syms;
+static constexpr uint64_t MAP_PREFERRED_BASE = 0x140000000ull;
+
+static bool is_hex16_va(const std::string& s) {
+    if (s.size() != 16 || s.compare(0, 10, "0000000140") != 0) return false;
+    for (char c : s) if (!isxdigit((unsigned char)c)) return false;
+    return true;
+}
+
+static void load_map_symbols() {
+    char exePath[MAX_PATH];
+    GetModuleFileNameA(NULL, exePath, MAX_PATH);
+    std::filesystem::path mapPath = std::filesystem::path(exePath).replace_extension(".map");
+    std::ifstream f(mapPath);
+    if (!f) {
+        fprintf(stderr, "[map] no symbol map at %s (crash traces won't be symbolized)\n",
+                mapPath.string().c_str());
+        return;
+    }
+    std::string line;
+    while (std::getline(f, line)) {
+        // Symbol lines look like: " 0001:00025e00   <name>   0000000140026e00 f i x.obj"
+        std::istringstream iss(line);
+        std::vector<std::string> tok;
+        for (std::string t; iss >> t; ) tok.push_back(t);
+        if (tok.size() < 3) continue;
+        // tok[0] must be SECTION:OFFSET
+        if (tok[0].size() != 13 || tok[0][4] != ':') continue;
+        for (size_t i = 2; i < tok.size(); i++) {
+            if (is_hex16_va(tok[i])) {
+                uint64_t va = strtoull(tok[i].c_str(), nullptr, 16);
+                g_map_syms.push_back({ (uint32_t)(va - MAP_PREFERRED_BASE), tok[i - 1] });
+                break;
+            }
+        }
+    }
+    std::sort(g_map_syms.begin(), g_map_syms.end(),
+              [](const MapSym& a, const MapSym& b) { return a.rva < b.rva; });
+    fprintf(stderr, "[map] loaded %zu symbols from %s\n",
+            g_map_syms.size(), mapPath.filename().string().c_str());
+}
+
+// Returns "name + 0xNNN" for a module-relative address, or empty if unknown.
+static std::string symbolize_rva(uint32_t rva) {
+    if (g_map_syms.empty()) return {};
+    auto it = std::upper_bound(g_map_syms.begin(), g_map_syms.end(), rva,
+                               [](uint32_t v, const MapSym& m) { return v < m.rva; });
+    if (it == g_map_syms.begin()) return {};
+    --it;
+    char buf[320];
+    snprintf(buf, sizeof(buf), "%s + 0x%X", it->name.c_str(), rva - it->rva);
+    return buf;
 }
 
 // =============================================================================
@@ -330,9 +455,25 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ep) {
             ep->ExceptionRecord->ExceptionCode,
             ep->ExceptionRecord->ExceptionAddress);
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        uintptr_t fault = (uintptr_t)ep->ExceptionRecord->ExceptionInformation[1];
         fprintf(stderr, "[CRASH] Access violation %s address 0x%p\n",
                 ep->ExceptionRecord->ExceptionInformation[0] ? "writing" : "reading",
-                (void*)ep->ExceptionRecord->ExceptionInformation[1]);
+                (void*)fault);
+        // Translate the fault back into an N64 address using the RDRAM base.
+        if (g_rdram_base) {
+            int64_t off = (int64_t)(fault - (uintptr_t)g_rdram_base);
+            // MEM_B uses XOR 3 byte-swizzling, so undo it for the printed addr.
+            uint32_t n64 = (uint32_t)(off + 0x80000000);
+            uint32_t n64_b = (uint32_t)((off ^ 3) + 0x80000000);
+            const char* tag = (off >= -0x10000 && off < 0x00900000)
+                              ? "in RDRAM" : "out of RDRAM";
+            fprintf(stderr, "[CRASH] rdram_base=%p offset=%+lld (%s)\n",
+                    (void*)g_rdram_base, (long long)off, tag);
+            fprintf(stderr, "[CRASH] -> N64 word addr ~0x%08X  byte addr ~0x%08X\n",
+                    n64, n64_b);
+        } else {
+            fprintf(stderr, "[CRASH] rdram_base not set yet\n");
+        }
     }
     // Print module + offset for the crash address
     HMODULE hMod = NULL;
@@ -344,8 +485,10 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ep) {
         uintptr_t offset = (uintptr_t)ep->ExceptionRecord->ExceptionAddress - (uintptr_t)hMod;
         fprintf(stderr, "[CRASH] Module: %s + 0x%llX\n", modName, (unsigned long long)offset);
     }
-    // Print stack trace using SymFromAddr
+    // Walk the stack and symbolize each frame against the linker .map. This
+    // resolves the recompiled func_XXXX names that PDB-based SymFromAddr cannot.
     SymInitialize(GetCurrentProcess(), NULL, TRUE);
+    uintptr_t modBase = (uintptr_t)GetModuleHandle(NULL);
     STACKFRAME64 frame = {};
     CONTEXT ctx = *ep->ContextRecord;
     frame.AddrPC.Offset = ctx.Rip;
@@ -354,22 +497,20 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* ep) {
     frame.AddrStack.Mode = AddrModeFlat;
     frame.AddrFrame.Offset = ctx.Rbp;
     frame.AddrFrame.Mode = AddrModeFlat;
-    fprintf(stderr, "[CRASH] Stack trace:\n");
-    for (int i = 0; i < 20; i++) {
+    fprintf(stderr, "[CRASH] Stack trace (symbolized via .map):\n");
+    for (int i = 0; i < 24; i++) {
         if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, GetCurrentProcess(),
                          GetCurrentThread(), &frame, &ctx, NULL,
                          SymFunctionTableAccess64, SymGetModuleBase64, NULL))
             break;
-        char buf[sizeof(SYMBOL_INFO) + 256];
-        SYMBOL_INFO* sym = (SYMBOL_INFO*)buf;
-        sym->SizeOfStruct = sizeof(SYMBOL_INFO);
-        sym->MaxNameLen = 255;
-        DWORD64 disp = 0;
-        if (SymFromAddr(GetCurrentProcess(), frame.AddrPC.Offset, &disp, sym)) {
-            fprintf(stderr, "  [%d] %s + 0x%llX\n", i, sym->Name, (unsigned long long)disp);
-        } else {
-            fprintf(stderr, "  [%d] 0x%llX\n", i, (unsigned long long)frame.AddrPC.Offset);
-        }
+        uint64_t pc = frame.AddrPC.Offset;
+        std::string name;
+        if (pc >= modBase) name = symbolize_rva((uint32_t)(pc - modBase));
+        if (!name.empty())
+            fprintf(stderr, "  [%d] %s   (rva 0x%X)\n", i, name.c_str(),
+                    (uint32_t)(pc - modBase));
+        else
+            fprintf(stderr, "  [%d] 0x%llX\n", i, (unsigned long long)pc);
     }
     fflush(stderr);
     return EXCEPTION_EXECUTE_HANDLER;
@@ -379,6 +520,7 @@ int main(int argc, char* argv[]) {
     // Force unbuffered output so we see prints before crashes
     setvbuf(stdout, nullptr, _IONBF, 0);
     setvbuf(stderr, nullptr, _IONBF, 0);
+    load_map_symbols();
     SetUnhandledExceptionFilter(crash_handler);
 
     fprintf(stderr, "[DEBUG] main() entered\n");

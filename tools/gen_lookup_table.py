@@ -32,7 +32,7 @@ def parse_symbols(path):
 
     # Parse functions
     func_pattern = re.compile(
-        r'\[\[section\.functions\]\]\s*\n\s*(?:#[^\n]*\n\s*)?name\s*=\s*"([^"]+)"\s*\n\s*vram\s*=\s*(0x[0-9A-Fa-f]+)\s*\n\s*size\s*=\s*(0x[0-9A-Fa-f]+)',
+        r'\[\[section\.functions\]\]\s*\n\s*(?:#[^\n]*\n\s*)*name\s*=\s*"([^"]+)"\s*\n\s*vram\s*=\s*(0x[0-9A-Fa-f]+)\s*\n\s*size\s*=\s*(0x[0-9A-Fa-f]+)',
         re.MULTILINE
     )
 

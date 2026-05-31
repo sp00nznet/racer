@@ -1672,12 +1672,16 @@ size = 0x98000
   [[section.functions]]
   name = "func_800399F8"
   vram = 0x800399F8
-  size = 0x40
+  size = 0x38
 
   [[section.functions]]
+  # Framebuffer allocator. Starts at 0x80039A30 (loads osMemSize) and runs
+  # through 0x80039B70. N64Recomp otherwise splits 0x80039A30 off as
+  # static_0_80039A30; defining the symbol here keeps it one function so the
+  # osMemSize load falls through into the allocation logic.
   name = "func_80039A38"
-  vram = 0x80039A38
-  size = 0x138
+  vram = 0x80039A30
+  size = 0x140
 
   [[section.functions]]
   name = "func_80039B70"
@@ -2452,7 +2456,15 @@ size = 0x98000
   [[section.functions]]
   name = "func_8005C210"
   vram = 0x8005C210
-  size = 0xEFC
+  size = 0x9C8
+
+  [[section.functions]]
+  # Split from func_8005C210: 0x8005CBD8 is a real function (prologue
+  # addiu sp,-0x160) called via a function pointer. It was swallowed inside
+  # func_8005C210's range, so LOOKUP_FUNC(0x8005CBD8) failed at runtime.
+  name = "func_8005CBD8"
+  vram = 0x8005CBD8
+  size = 0x534
 
   [[section.functions]]
   name = "func_8005D10C"
@@ -3614,12 +3626,15 @@ size = 0x98000
   [[section.functions]]
   name = "func_80089870"
   vram = 0x80089870
-  size = 0x178
+  size = 0x170
 
   [[section.functions]]
+  # Controller-status parser. Starts at 0x800899E0 (loads the controller count)
+  # and runs through 0x80089AB0. N64Recomp otherwise auto-splits 0x800899E0 off
+  # as static_0_800899E0; defining the symbol here keeps it one function.
   name = "func_800899E8"
-  vram = 0x800899E8
-  size = 0xC8
+  vram = 0x800899E0
+  size = 0xD0
 
   [[section.functions]]
   name = "func_80089AB0"
@@ -3786,8 +3801,10 @@ size = 0x98000
   vram = 0x8008C100
   size = 0x50
 
+  # NOT osGetCount — disasm is lbu/lw/sw, no mfc0, and it has zero callers.
+  # The real osGetCount is 0x8008C550 (mfc0 $9). Renamed to free the name.
   [[section.functions]]
-  name = "osGetCount"
+  name = "func_8008C150"
   vram = 0x8008C150
   size = 0x40
 
@@ -3812,11 +3829,22 @@ size = 0x98000
   vram = 0x8008C3B0
   size = 0x1A0
 
-  # Was misidentified as osGetCount — actually osSendMesg
+  # osGetCount: 0x8008C550 is `mfc0 $v0, $9` (Count register) + `jr $ra`.
+  # Was wrongly flipped to osSendMesg, which made ultramodern deref the junk
+  # arg as a queue (crash). The scheduler (func_8008BC30) and the clock init
+  # (func_800811DC) both call this for timing. Size trimmed to the 2 real
+  # instructions; the COP0 timer helpers that follow are separate functions.
   [[section.functions]]
-  name = "osSendMesg"
+  name = "osGetCount"
   vram = 0x8008C550
-  size = 0x220
+  size = 0x10
+
+  [[section.functions]]
+  # osGetTime / osSetCompare family (COP0) that the old 0x220 size absorbed.
+  # Contains mtc0/mfc0 — stub it (see recomp.toml stubs) until needed.
+  name = "func_8008C560"
+  vram = 0x8008C560
+  size = 0x210
 
   [[section.functions]]
   name = "func_8008C770"

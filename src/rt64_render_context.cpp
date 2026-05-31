@@ -150,13 +150,19 @@ public:
 
         dl_count_++;
         if (dl_count_ <= 5 || (dl_count_ % 60 == 0)) {
-            printf("[SWE1R] send_dl #%u: data_ptr=0x%08X type=%u\n",
-                   dl_count_, (uint32_t)task->t.data_ptr, task->t.type);
+            printf("[SWE1R] send_dl #%u: data_ptr=0x%08X ucode=0x%08X ucode_data=0x%08X type=%u\n",
+                   dl_count_, (uint32_t)task->t.data_ptr, (uint32_t)task->t.ucode,
+                   (uint32_t)task->t.ucode_data, task->t.type);
         }
 
-        // Get the display list address from the task
-        // data_ptr is a MIPS virtual address (0x80XXXXXX), convert to physical
-        uint32_t dl_address = task->t.data_ptr & 0x1FFFFFFF;
+        // Tell RT64's HLE interpreter which microcode/GBI to use BEFORE parsing
+        // the display list. Without this the interpreter has no GBI command map
+        // and crashes in processDisplayLists. ucode/ucode_data/data_ptr are MIPS
+        // virtual addresses; mask to the RDRAM physical offset RT64 indexes by.
+        uint32_t ucode      = (uint32_t)task->t.ucode      & 0x3FFFFFF;
+        uint32_t ucode_data = (uint32_t)task->t.ucode_data & 0x3FFFFFF;
+        uint32_t dl_address = (uint32_t)task->t.data_ptr   & 0x3FFFFFF;
+        app_->interpreter->loadUCodeGBI(ucode, ucode_data, true);
         app_->processDisplayLists(rdram_, dl_address, 0, true);
     }
 

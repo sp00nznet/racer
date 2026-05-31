@@ -35,6 +35,8 @@ stubs = [
     # osViSetEvent at 0x8008C090: renamed and handled by N64Recomp reimplemented_funcs
     # func_8008C100 split: dispatch portion still stubbed (COP0 instructions)
     "func_8008C100_dispatch",
+    # osGetTime/osSetCompare COP0 helpers after osGetCount (0x8008C550)
+    "func_8008C560",
     "func_8008C190",
     "func_8008C280",
     # func_8008C390 split: tail portion still stubbed
@@ -106,7 +108,6 @@ stubs = [
     "func_800926A0",
     "func_800928F0",
     "func_80092B10",
-    "func_80093180",
     "pi_create_access_queue",
     "pi_rel_access",
     "pi_read_io",
