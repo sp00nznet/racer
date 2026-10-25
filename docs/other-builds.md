@@ -47,7 +47,8 @@ build installs over the old one and keeps your saves.
 - Android: the x86_64 build in the Android emulator (Vulkan through the host GPU) boots to the
   launcher, the title screen and the game's intro; the arm64 build builds but hasn't been on a
   phone yet.
-- Linux arm64: in an emulated arm64 Debian 13 container (software Vulkan), the launcher comes up
-  and the game starts; not yet on a Raspberry Pi. Debian 12's own software Vulkan (lavapipe, Mesa
+- Linux arm64: in an emulated arm64 Debian 13 container (software Vulkan), the launcher comes up,
+  and the game runs (frames and the audio microcode advance) but too slowly under emulation to
+  get past its opening fade in 12 minutes; not yet on a Raspberry Pi. Debian 12's own software Vulkan (lavapipe, Mesa
   22.3) crashes while compiling RT64's shaders, on x86 too; Mesa 24 and newer is fine. The Pi's
   GPU uses a different driver (v3dv), so that crash may not apply there.

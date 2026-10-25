@@ -12,7 +12,8 @@ ROM in Docker. The first set, which builds and plays the game on the computer it
 - How to install each: docs/other-builds.md.
 
 Known issues: neither build has run on its real hardware yet (Android was tried in the emulator
-up to the game's intro, Linux arm64 in an emulated container); no touch controls on Android.
+up to the game's intro; Linux arm64 only in an emulated container, where it runs but too slowly
+to show the game); no touch controls on Android.
 
 ## v0.2.0 (2026-10-25)
 
