@@ -51,6 +51,9 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
     g_window_display = d ? std::atoi(d) : g_config.display;
     Uint32 flags = SDL_WINDOW_RESIZABLE | (g_config.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
     if (g_headless) flags = SDL_WINDOW_HIDDEN;
+#ifdef __APPLE__
+    flags |= SDL_WINDOW_METAL; // RT64 draws into a Metal view on it (create_window)
+#endif
     g_window = SDL_CreateWindow(g_game.title.c_str(),
         SDL_WINDOWPOS_CENTERED_DISPLAY(g_window_display), SDL_WINDOWPOS_CENTERED_DISPLAY(g_window_display),
         g_config.windowWidth, g_config.windowHeight, flags);
