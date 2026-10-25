@@ -1,10 +1,14 @@
 // The window, the event loop, how the game starts, and the callbacks fe::run hands librecomp.
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#endif
 
 #include <SDL.h>
-#include <SDL_syswm.h>
+#ifndef __linux__
+#include <SDL_syswm.h> // on Linux it brings X11's macros (None) into the runtime's headers
+#endif
 
 #include <atomic>
 #include <cstdio>
@@ -47,6 +51,9 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
     g_window_display = d ? std::atoi(d) : g_config.display;
     Uint32 flags = SDL_WINDOW_RESIZABLE | (g_config.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
     if (g_headless) flags = SDL_WINDOW_HIDDEN;
+#ifdef __APPLE__
+    flags |= SDL_WINDOW_METAL; // RT64 draws into a Metal view on it (create_window)
+#endif
     g_window = SDL_CreateWindow(g_game.title.c_str(),
         SDL_WINDOWPOS_CENTERED_DISPLAY(g_window_display), SDL_WINDOWPOS_CENTERED_DISPLAY(g_window_display),
         g_config.windowWidth, g_config.windowHeight, flags);
@@ -56,13 +63,22 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
     }
     ui_attach_window(g_window);
 
+#ifndef __linux__
     SDL_SysWMinfo wminfo;
     SDL_VERSION(&wminfo.version);
     SDL_GetWindowWMInfo(g_window, &wminfo);
+#endif
+#if defined(_WIN32)
     ultramodern::renderer::WindowHandle handle{};
     handle.window = wminfo.info.win.window;
     handle.thread_id = GetCurrentThreadId();
     return handle;
+#elif defined(__APPLE__)
+    SDL_MetalView view = SDL_Metal_CreateView(g_window);
+    return { wminfo.info.cocoa.window, SDL_Metal_GetLayer(view) };
+#else
+    return g_window; // rt64_context.cpp takes the X11 display and window from it
+#endif
 }
 
 void update_gfx(ultramodern::gfx_callbacks_t::gfx_data_t) {
@@ -109,9 +125,11 @@ void error_message_box(const char* msg) {
 }
 
 std::filesystem::path exe_dir() {
-    wchar_t exe[MAX_PATH];
-    GetModuleFileNameW(nullptr, exe, MAX_PATH);
-    return std::filesystem::path(exe).parent_path();
+    char* p = SDL_GetBasePath();
+    if (!p) return std::filesystem::current_path();
+    std::filesystem::path dir = std::filesystem::u8path(p);
+    SDL_free(p);
+    return dir;
 }
 
 } // namespace
@@ -223,7 +241,12 @@ int run(const GameInfo& game, recomp::Configuration& cfg, int argc, char** argv)
 
     if (g_window) SDL_DestroyWindow(g_window);
     SDL_Quit();
-    return 0;
+    // The game's own threads are never joined and may still be running: end here, before static
+    // destructors pull globals out from under them (a crash at exit on Linux and macOS). Saves,
+    // config and RT64 are already shut down.
+    printf("%s shutdown complete\n", log_prefix().c_str());
+    fflush(nullptr);
+    std::_Exit(0);
 }
 
 } // namespace fe

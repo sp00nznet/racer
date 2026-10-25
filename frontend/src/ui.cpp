@@ -2,26 +2,38 @@
 //
 // The main thread (SDL events, the loop in recomp::start) builds an ImGui frame about 60 times a
 // second; RT64's present thread draws the latest one on top of the game at each present. g_mutex
-// guards the ImGui context between the two. D3D12 only, like the rest of our Windows builds.
+// guards the ImGui context between the two. It draws with whichever API RT64 picked: D3D12 on
+// Windows, Vulkan on Linux, Metal on macOS (as RT64's own inspector does).
 //
 // ponytail: RT64's own inspector (developerMode) also uses ImGui's global context; don't open our
 // menu while it's showing.
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#endif
 
 #include "rhi/rt64_render_hooks.h"
-#include "plume_d3d12.h"
+#include "plume_vulkan.h" // volk, before ImGui's Vulkan backend
 
 #include "imgui.h"
-#include "backends/imgui_impl_dx12.h"
+#include "backends/imgui_impl_vulkan.h"
 #include "imgui/imgui_impl_sdl2_custom.h"
+#ifdef _WIN32
+#include "plume_d3d12.h"
+#include "backends/imgui_impl_dx12.h"
+#endif
+#ifdef __APPLE__
+#include "plume_metal.h"
+#include "backends/imgui_impl_metal.h"
+#endif
 
 #include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cfloat>
 #include <cstdio>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -37,74 +49,171 @@ namespace {
 
 // --- Rendering (RT64's present thread) -------------------------------------------------------
 
+enum class Api { None, D3D12, Vulkan, Metal };
+
 std::mutex g_mutex;
 ImGuiContext* g_ctx = nullptr;
-plume::D3D12Device* g_device = nullptr;
-ID3D12CommandQueue* g_queue = nullptr;
-std::vector<std::unique_ptr<plume::RenderDescriptorSet>> g_srv_sets;
+Api g_api = Api::None;
+plume::RenderDevice* g_device = nullptr;
 std::atomic<bool> g_backend_ready = false;
 bool g_has_frame = false; // a frame was built since the UI was last hidden
 
+#ifdef _WIN32
+ID3D12CommandQueue* g_queue = nullptr;
+std::vector<std::unique_ptr<plume::RenderDescriptorSet>> g_srv_sets;
+
 void srv_alloc(ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* cpu, D3D12_GPU_DESCRIPTOR_HANDLE* gpu) {
+    auto* dev = static_cast<plume::D3D12Device*>(g_device);
     plume::RenderDescriptorRange range(plume::RenderDescriptorRangeType::TEXTURE, 0, 1);
-    std::unique_ptr<plume::RenderDescriptorSet> set = g_device->createDescriptorSet(plume::RenderDescriptorSetDesc(&range, 1));
+    std::unique_ptr<plume::RenderDescriptorSet> set = dev->createDescriptorSet(plume::RenderDescriptorSetDesc(&range, 1));
     auto* d = static_cast<plume::D3D12DescriptorSet*>(set.get());
-    *cpu = g_device->viewHeapAllocator->getCPUHandleAt(d->viewAllocation.offset);
-    *gpu = g_device->viewHeapAllocator->getGPUHandleAt(d->viewAllocation.offset);
+    *cpu = dev->viewHeapAllocator->getCPUHandleAt(d->viewAllocation.offset);
+    *gpu = dev->viewHeapAllocator->getGPUHandleAt(d->viewAllocation.offset);
     g_srv_sets.push_back(std::move(set));
 }
 
 // ponytail: descriptors are only released at shutdown; ImGui frees a few as its font atlas grows.
 void srv_free(ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE) {}
+#endif
+
+void vk_check(VkResult r) { if (r != VK_SUCCESS) fprintf(stderr, "[ui] Vulkan error %d\n", (int)r); }
 
 void hook_init(RenderInterface*, RenderDevice* device) {
-    g_device = dynamic_cast<plume::D3D12Device*>(device);
-    if (!g_device) fprintf(stderr, "[ui] not running on D3D12; the launcher and menu are unavailable\n");
+    g_device = device;
+    g_api = Api::None;
+#ifdef _WIN32
+    if (dynamic_cast<plume::D3D12Device*>(device)) g_api = Api::D3D12;
+#endif
+#ifdef __APPLE__
+    if (dynamic_cast<plume::MetalDevice*>(device)) g_api = Api::Metal;
+#endif
+    if (dynamic_cast<plume::VulkanDevice*>(device)) g_api = Api::Vulkan;
+    if (g_api == Api::None) fprintf(stderr, "[ui] unknown graphics API; the launcher and menu are unavailable\n");
 }
 
-void hook_draw(RenderCommandList* list, RenderFramebuffer* fb) {
-    if (!g_device || !g_ctx) return;
-    std::lock_guard lock{ g_mutex };
-    ImGui::SetCurrentContext(g_ctx);
-    if (!g_backend_ready) {
-        // The swap chain's format is only known here.
+// The backend is set up on the first present, when the swap chain's format is known.
+bool init_backend(RenderCommandList* list, RenderFramebuffer* fb) {
+    switch (g_api) {
+#ifdef _WIN32
+    case Api::D3D12: {
+        auto* dev = static_cast<plume::D3D12Device*>(g_device);
         const auto* d3d_fb = static_cast<const plume::D3D12Framebuffer*>(fb);
         D3D12_COMMAND_QUEUE_DESC qd{ D3D12_COMMAND_LIST_TYPE_DIRECT };
-        if (d3d_fb->colorTargets.empty() || FAILED(g_device->d3d->CreateCommandQueue(&qd, IID_PPV_ARGS(&g_queue)))) {
-            g_device = nullptr;
-            return;
-        }
+        if (d3d_fb->colorTargets.empty() || FAILED(dev->d3d->CreateCommandQueue(&qd, IID_PPV_ARGS(&g_queue)))) return false;
         ImGui_ImplDX12_InitInfo info;
-        info.Device = g_device->d3d;
+        info.Device = dev->d3d;
         info.CommandQueue = g_queue;
         info.NumFramesInFlight = 2;
         info.RTVFormat = d3d_fb->colorTargets[0]->d3d->GetDesc().Format;
-        info.SrvDescriptorHeap = g_device->viewHeapAllocator->heap;
+        info.SrvDescriptorHeap = dev->viewHeapAllocator->heap;
         info.SrvDescriptorAllocFn = srv_alloc;
         info.SrvDescriptorFreeFn = srv_free;
-        ImGui_ImplDX12_Init(&info);
+        return ImGui_ImplDX12_Init(&info);
+    }
+#endif
+    case Api::Vulkan: {
+        auto* dev = static_cast<plume::VulkanDevice*>(g_device);
+        auto* cl = static_cast<plume::VulkanCommandList*>(list);
+        const auto* vk_fb = static_cast<const plume::VulkanFramebuffer*>(fb);
+        ImGui_ImplVulkan_LoadFunctions(VK_API_VERSION_1_2, [](const char* name, void* instance) {
+            return vkGetInstanceProcAddr(*reinterpret_cast<VkInstance*>(instance), name);
+        }, &dev->renderInterface->instance);
+        ImGui_ImplVulkan_InitInfo info = {};
+        info.Instance = dev->renderInterface->instance;
+        info.PhysicalDevice = dev->physicalDevice;
+        info.Device = dev->vk;
+        // ponytail: shares RT64's present queue, as RT64's inspector does; ImGui submits on it only
+        // to upload font textures, from this (the present) thread.
+        info.QueueFamily = cl->queue->familyIndex;
+        info.Queue = cl->queue->queue->vk;
+        info.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_SAMPLED_IMAGE_POOL_SIZE;
+        info.MinImageCount = 2;
+        info.ImageCount = 2;
+        info.CheckVkResultFn = vk_check;
+        info.PipelineInfoMain.RenderPass = vk_fb->renderPass; // every swap chain framebuffer's pass is compatible
+        return ImGui_ImplVulkan_Init(&info);
+    }
+#ifdef __APPLE__
+    case Api::Metal: {
+        auto* dev = static_cast<plume::MetalDevice*>(g_device);
+        if (!ImGui_ImplMetal_Init(dev->mtl)) return false;
+        return ImGui_ImplMetal_CreateDeviceObjects(dev->mtl);
+    }
+#endif
+    default: return false;
+    }
+}
+
+void hook_draw(RenderCommandList* list, RenderFramebuffer* fb) {
+    if (g_api == Api::None || !g_ctx) return;
+    std::lock_guard lock{ g_mutex };
+    ImGui::SetCurrentContext(g_ctx);
+    if (!g_backend_ready) {
+        if (!init_backend(list, fb)) { fprintf(stderr, "[ui] the overlay couldn't start; the launcher and menu are unavailable\n"); g_api = Api::None; return; }
         g_backend_ready = true;
-        printf("[ui] overlay ready (format %d)\n", (int)info.RTVFormat);
+        printf("[ui] overlay ready (api %d)\n", (int)g_api);
         return;
     }
     if (!g_has_frame) return;
     ImDrawData* dd = ImGui::GetDrawData();
     if (!dd || !dd->Valid) return;
-    auto* cl = static_cast<plume::D3D12CommandList*>(list);
-    cl->checkDescriptorHeaps(); // ImGui's textures live in RT64's descriptor heap
-    ImGui_ImplDX12_RenderDrawData(dd, cl->d3d);
+    switch (g_api) {
+#ifdef _WIN32
+    case Api::D3D12: {
+        auto* cl = static_cast<plume::D3D12CommandList*>(list);
+        cl->checkDescriptorHeaps(); // ImGui's textures live in RT64's descriptor heap
+        ImGui_ImplDX12_RenderDrawData(dd, cl->d3d);
+        break;
+    }
+#endif
+    case Api::Vulkan: {
+        auto* cl = static_cast<plume::VulkanCommandList*>(list);
+        cl->checkActiveRenderPass();
+        ImGui_ImplVulkan_RenderDrawData(dd, cl->vk);
+        break;
+    }
+#ifdef __APPLE__
+    case Api::Metal: {
+        NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
+        auto* cl = static_cast<plume::MetalCommandList*>(list);
+        cl->checkActiveRenderEncoder();
+        MTL::RenderPassDescriptor* rp = MTL::RenderPassDescriptor::renderPassDescriptor();
+        MTL::RenderPassColorAttachmentDescriptor* color = rp->colorAttachments()->object(0);
+        color->setTexture(cl->targetFramebuffer->colorAttachments[0].getTexture());
+        color->setLoadAction(MTL::LoadActionLoad);
+        color->setStoreAction(MTL::StoreActionStore);
+        ImGui_ImplMetal_NewFrame(rp);
+        ImGui_ImplMetal_RenderDrawData(dd, cl->mtl, cl->activeRenderEncoder);
+        pool->release();
+        break;
+    }
+#endif
+    default: break;
+    }
 }
 
 void hook_deinit() {
     std::lock_guard lock{ g_mutex };
     if (g_backend_ready) {
         ImGui::SetCurrentContext(g_ctx);
-        ImGui_ImplDX12_Shutdown();
+        switch (g_api) {
+#ifdef _WIN32
+        case Api::D3D12: ImGui_ImplDX12_Shutdown(); break;
+#endif
+        case Api::Vulkan: ImGui_ImplVulkan_Shutdown(); break;
+#ifdef __APPLE__
+        case Api::Metal: ImGui_ImplMetal_Shutdown(); break;
+#endif
+        default: break;
+        }
         g_backend_ready = false;
     }
+#ifdef _WIN32
     g_srv_sets.clear();
     if (g_queue) { g_queue->Release(); g_queue = nullptr; }
+#endif
     g_device = nullptr;
+    g_api = Api::None;
 }
 
 // --- State (main thread) ---------------------------------------------------------------------
@@ -532,7 +641,7 @@ void ui_attach_window(SDL_Window* w) {
     std::lock_guard lock{ g_mutex };
     g_window = w;
     ImGui::SetCurrentContext(g_ctx);
-    ImGui_ImplSDL2_InitForD3D(w);
+    ImGui_ImplSDL2_InitForOther(w);
 }
 
 void ui_show_launcher() {
@@ -583,7 +692,11 @@ void ui_frame() {
     std::lock_guard lock{ g_mutex };
     ImGui::SetCurrentContext(g_ctx);
     if (!ui_visible()) { g_has_frame = false; return; }
-    ImGui_ImplDX12_NewFrame();
+#ifdef _WIN32
+    if (g_api == Api::D3D12) ImGui_ImplDX12_NewFrame();
+#endif
+    if (g_api == Api::Vulkan) ImGui_ImplVulkan_NewFrame();
+    // Metal starts its frame at draw time: it needs that present's render pass.
     ImGui_ImplSDL2_NewFrame();
     ImGui::GetIO().BackendFlags |= ImGuiBackendFlags_HasGamepad;
     update_scale();

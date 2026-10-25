@@ -8,9 +8,25 @@
 // Before the game starts, the host sends its save (unlocks change the game, so both sides need the
 // same one). Netplay uses its own config folder (netplay/) so normal saves are untouched.
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#else
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <unistd.h>
+using SOCKET = int;
+constexpr SOCKET INVALID_SOCKET = -1;
+static int closesocket(SOCKET s) { return close(s); }
+struct WSADATA {};
+static int WSAStartup(int, WSADATA*) { return 0; }
+static int WSACleanup() { return 0; }
+#define MAKEWORD(a, b) 0
+#endif
 
 #include <algorithm>
 #include <chrono>
@@ -87,8 +103,8 @@ void send_raw(const void* data, int len) {
 int recv_raw(void* buf, int cap, int ms) {
     fd_set fds; FD_ZERO(&fds); FD_SET(g_sock, &fds);
     timeval tv{ ms / 1000, (ms % 1000) * 1000 };
-    if (select(0, &fds, nullptr, nullptr, &tv) <= 0) return 0;
-    sockaddr_storage from{}; int from_len = sizeof(from);
+    if (select((int)g_sock + 1, &fds, nullptr, nullptr, &tv) <= 0) return 0;
+    sockaddr_storage from{}; socklen_t from_len = sizeof(from);
     int n = recvfrom(g_sock, (char*)buf, cap, 0, (sockaddr*)&from, &from_len);
     if (n < (int)sizeof(Header) || ((Header*)buf)->magic != kMagic) return 0;
     if (g_peer_len == 0) { g_peer = from; g_peer_len = from_len; }
@@ -182,7 +198,7 @@ bool open_socket(int bind_port) {
     g_peer_len = 0;
     g_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (g_sock == INVALID_SOCKET) { set_status("Couldn't open a UDP socket."); return false; }
-    sockaddr_in addr{}; addr.sin_family = AF_INET; addr.sin_port = htons((u_short)bind_port); addr.sin_addr.s_addr = INADDR_ANY;
+    sockaddr_in addr{}; addr.sin_family = AF_INET; addr.sin_port = htons((uint16_t)bind_port); addr.sin_addr.s_addr = INADDR_ANY;
     if (bind(g_sock, (sockaddr*)&addr, sizeof(addr)) != 0) {
         set_status("UDP port " + std::to_string(bind_port) + " is in use.");
         return false;

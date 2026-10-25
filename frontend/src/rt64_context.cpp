@@ -4,6 +4,9 @@
 // NOMINMAX must be set globally via CMake (target_compile_definitions)
 // Include RT64 first to avoid Windows.h macro conflicts
 #include "hle/rt64_application.h"
+#ifdef __linux__
+#include <SDL_syswm.h>
+#endif
 
 #include <cstdio>
 #include <cstring>
@@ -89,14 +92,26 @@ public:
         : rdram_(rdram), window_handle_(window_handle), developer_mode_(developer_mode)
     {
         setup_result = ultramodern::renderer::SetupResult::Success;
-        chosen_api = ultramodern::renderer::GraphicsApi::D3D12;
 
         // Get VI register pointers from ultramodern
         vi_regs_ = ultramodern::renderer::get_vi_regs();
 
         // Set up the RT64 Core structure
         RT64::Application::Core core{};
+#if defined(_WIN32)
         core.window = window_handle.window;
+        uint32_t thread_id = window_handle.thread_id;
+#elif defined(__APPLE__)
+        core.window = { window_handle.window, window_handle.view };
+        uint32_t thread_id = 0;
+#else
+        // ponytail: X11 only; Wayland sessions run it through XWayland (SDL2 picks X11 by default)
+        SDL_SysWMinfo wm;
+        SDL_VERSION(&wm.version);
+        SDL_GetWindowWMInfo(window_handle, &wm);
+        core.window = { wm.info.x11.display, wm.info.x11.window };
+        uint32_t thread_id = 0;
+#endif
         core.RDRAM = rdram;
         core.DMEM = s_dmem;
         core.IMEM = s_imem;
@@ -152,7 +167,11 @@ public:
         apply_graphics_config(app_->userConfig);
 
         // Run setup (creates graphics device, swap chain, shader caches, etc.)
-        auto result = app_->setup(window_handle.thread_id);
+        auto result = app_->setup(thread_id);
+        using API = RT64::UserConfiguration::GraphicsAPI;
+        chosen_api = app_->chosenGraphicsAPI == API::D3D12 ? ultramodern::renderer::GraphicsApi::D3D12
+                   : app_->chosenGraphicsAPI == API::Metal ? ultramodern::renderer::GraphicsApi::Metal
+                   : ultramodern::renderer::GraphicsApi::Vulkan;
 
         switch (result) {
         case RT64::Application::SetupResult::Success:
@@ -184,6 +203,7 @@ public:
     ~RT64Context() override {
         if (app_) {
             printf("[rt64] Destroying RT64 application\n");
+            app_->end(); // ~Application is empty; end() tears down in order (and calls our deinit hook)
             app_.reset();
         }
     }
@@ -249,6 +269,7 @@ public:
     void shutdown() override {
         printf("[rt64] Render context shutdown\n");
         if (app_) {
+            app_->end(); // ~Application is empty; end() tears down in order (and calls our deinit hook)
             app_.reset();
         }
         is_valid_ = false;

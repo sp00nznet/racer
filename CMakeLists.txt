@@ -5,6 +5,11 @@ project(SWE1Racer VERSION 0.2.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# The RSP vector unit code (librecomp, aspMain) uses SSE4.1 on x86; MSVC needs no flag for it.
+if(NOT MSVC AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    add_compile_options(-msse4.1)
+endif()
+
 # =============================================================================
 # Options
 # =============================================================================
@@ -20,8 +25,15 @@ set(N64_MODERN_RUNTIME_DIR "${default_N64ModernRuntime}" CACHE PATH "Path to N64
 set(RT64_DIR "${default_rt64}" CACHE PATH "Path to RT64 renderer")
 
 # =============================================================================
-# SDL2: the Windows build RT64 ships (RT64 links it by bare name from this folder)
+# SDL2: on Windows the build RT64 ships (RT64 links it by bare name from this folder);
+# on Linux and macOS the system's (apt/dnf/pacman libsdl2, brew sdl2)
 # =============================================================================
+if(NOT WIN32)
+    find_package(SDL2 REQUIRED)
+    if(NOT TARGET SDL2::SDL2main)
+        add_library(SDL2::SDL2main INTERFACE IMPORTED)
+    endif()
+else()
 set(SDL2_DIR_WIN "${RT64_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3")
 link_directories("${SDL2_DIR_WIN}/lib/x64")
 add_library(SDL2::SDL2 SHARED IMPORTED)
@@ -31,6 +43,7 @@ set_target_properties(SDL2::SDL2 PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${SDL2_DIR_WIN}/include")
 add_library(SDL2::SDL2main STATIC IMPORTED)
 set_target_properties(SDL2::SDL2main PROPERTIES IMPORTED_LOCATION "${SDL2_DIR_WIN}/lib/x64/SDL2main.lib")
+endif()
 
 # =============================================================================
 # RT64 Renderer
@@ -62,7 +75,9 @@ target_include_directories(RecompiledFuncs PRIVATE
 if(MSVC)
     # MSVC doesn't have strict aliasing by default
 else()
-    target_compile_options(RecompiledFuncs PRIVATE -fno-strict-aliasing)
+    # -Wno-implicit-function-declaration: N64Recomp calls __osSiRawStartDma_recomp (src/main.cpp)
+    # without declaring it in funcs.h; clang 16+ makes that an error.
+    target_compile_options(RecompiledFuncs PRIVATE -fno-strict-aliasing -Wno-implicit-function-declaration)
 endif()
 
 # =============================================================================

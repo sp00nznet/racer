@@ -4,14 +4,18 @@
   "accent": "#d9822b",
   "note": {
     "windows": "Needs your own USA .z64 of Star Wars Episode I: Racer and a DirectX 12 GPU. The first build takes 30 to 60 minutes and about 8 GB. Git, Python, CMake and the Visual Studio Build Tools (about 3 GB) are installed if they are missing; Windows asks for permission once.",
-    "default": "Windows only for now."
+    "linux": "Needs your own USA .z64 of Star Wars Episode I: Racer and a Vulkan GPU driver. The first build takes 20 to 40 minutes and about 6 GB. Clang, CMake, Ninja, Python and the SDL2, GTK 3 and X11 development packages are installed with your package manager (apt, dnf or pacman) if they are missing; it asks for your password once.",
+    "darwin": "Needs your own USA .z64 of Star Wars Episode I: Racer, an Apple Silicon Mac and Xcode (for its Metal shader compiler; install it from the App Store first). The first build takes 20 to 40 minutes and about 6 GB. CMake, Ninja and SDL2 are installed with Homebrew if they are missing.",
+    "default": "Windows, Linux and macOS."
   },
   "game": {
     "name": "Star Wars Episode I: Racer ROM",
     "files": ["*.z64"]
   },
   "setup": {
-    "windows": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools\\setup.ps1", "-Yes", "-Game", "{game}"]
+    "windows": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools\\setup.ps1", "-Yes", "-Game", "{game}"],
+    "linux": ["bash", "setup.sh", "--yes", "--game", "{game}"],
+    "darwin": ["bash", "setup.sh", "--yes", "--game", "{game}"]
   },
-  "play": "* (recomp).cmd"
+  "play": "* (recomp).*"
 }

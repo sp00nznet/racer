@@ -14,14 +14,15 @@
 #include <fstream>
 #include <sstream>
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <dbghelp.h>
 #include <tlhelp32.h>
+#endif
 #include <thread>
 
 #include <SDL.h>
-#include <SDL_syswm.h>
 
 #include "recomp.h"
 #include "librecomp/game.hpp"
@@ -255,6 +256,9 @@ void on_game_init(uint8_t* rdram, recomp_context* ctx) {
     printf("[SWE1R] osMemSize=0x800000 written at 0x80000318\n");
 }
 
+// The debugging aids below (crash traces, SWE1R_STACKDUMP, SWE1R_WATCH) use DbgHelp and
+// Win32 thread contexts, so they are Windows only.
+#ifdef _WIN32
 // =============================================================================
 // Map-file symbolizer
 //
@@ -466,8 +470,10 @@ static void print_stack(HANDLE thread, CONTEXT ctx, int max_frames) {
             fprintf(stderr, "  [%d] 0x%llX\n", i, (unsigned long long)pc);
     }
 }
+#endif // _WIN32
 
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
     // Started from Explorer or a launcher (console window or none): keep the log, crash traces
     // included, in swe1racer.log next to the exe. Piped or redirected output is left alone.
     HANDLE err = GetStdHandle(STD_ERROR_HANDLE);
@@ -478,9 +484,11 @@ int main(int argc, char* argv[]) {
         log = log.substr(0, log.find_last_of("\\/") + 1) + "swe1racer.log";
         freopen(log.c_str(), "w", stderr);
     }
+#endif
     // Force unbuffered output so we see prints before crashes
     setvbuf(stdout, nullptr, _IONBF, 0);
     setvbuf(stderr, nullptr, _IONBF, 0);
+#ifdef _WIN32
     load_map_symbols();
     SetUnhandledExceptionFilter(crash_handler);
     if (const char* s = std::getenv("SWE1R_STACKDUMP")) {
@@ -490,12 +498,13 @@ int main(int argc, char* argv[]) {
         const char* at = strchr(w, '@');
         std::thread(watch_thread, (uint32_t)strtoul(w, nullptr, 16), at ? std::atoi(at + 1) : 0).detach();
     }
+#endif
 
     fprintf(stderr, "[DEBUG] main() entered\n");
 
     printf("===========================================\n");
     printf("  Star Wars Episode I: Racer\n");
-    printf("  N64 Static Recompilation v%d.%d.%d\n", 0, 1, 0);
+    printf("  N64 Static Recompilation v%d.%d.%d\n", 0, 2, 0);
     printf("  \"Now THIS is podracing!\"\n");
     printf("===========================================\n\n");
 
@@ -533,7 +542,7 @@ int main(int argc, char* argv[]) {
            num_sections, section_table[0].num_funcs);
 
     recomp::Configuration cfg{};
-    cfg.project_version = { 0, 1, 0 };
+    cfg.project_version = { 0, 2, 0 };
     cfg.rsp_callbacks.get_rsp_microcode = get_rsp_microcode;
     cfg.events_callbacks.vi_callback = vi_callback;
     cfg.threads_callbacks.get_game_thread_name = get_game_thread_name;
@@ -558,7 +567,5 @@ int main(int argc, char* argv[]) {
 
     printf("[SWE1R] Starting runtime...\n");
     printf("  \"It's working! IT'S WORKING!\" - Anakin Skywalker\n\n");
-    int rc = fe::run(game, cfg, argc, argv);
-    printf("\n[SWE1R] Shutdown complete.\n");
-    return rc;
+    return fe::run(game, cfg, argc, argv); // ends the process itself on a normal exit
 }
