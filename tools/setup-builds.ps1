@@ -13,7 +13,9 @@ build-logs\. The results land in builds\.
 #>
 param([switch]$Yes, [Alias('GameDir')][string]$Game = '', [string]$Targets = '')
 
-$ErrorActionPreference = 'Stop'
+# Continue: Windows PowerShell turns any docker stderr line into a terminating error under Stop,
+# even redirected; every step checks docker's exit code instead.
+$ErrorActionPreference = 'Continue'
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 New-Item -ItemType Directory -Force build-logs, builds | Out-Null
@@ -35,15 +37,12 @@ function Fail($t) {
 function Ask($q) { if ($Yes) { return $true }; (Read-Host "$q [Y/n]") -notmatch '^[nN]' }
 # Runs a native command with its output in $log (appended), and returns its exit code.
 function Exec($log, [string[]]$a) {
-    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'   # stderr lines are output here, not errors
     & $a[0] $a[1..($a.Count - 1)] 2>&1 | ForEach-Object { "$_" } | Out-File $log -Append -Encoding utf8
-    $code = $LASTEXITCODE
-    $ErrorActionPreference = $old
-    return $code
+    return $LASTEXITCODE
 }
 # Builds a toolchain image on first use (Docker caches it after that).
 function Image($tag, $platform, $dockerfile, $log) {
-    docker image inspect $tag 2>$null | Out-Null
+    docker image inspect $tag *> $null
     if ($LASTEXITCODE -eq 0) { return 0 }
     $a = @('docker', 'build', '-t', $tag)
     if ($platform) { $a += @('--platform', $platform) }
