@@ -191,6 +191,10 @@ make progress
 
 **Linux and macOS:** the installer works there too, or run **`./setup.sh`** (`--yes --game <folder>` for no questions): the same steps, and it leaves `Star Wars Episode I Racer (recomp).sh` (`.command` on macOS) to play. On Linux it installs Clang, CMake, Ninja and the SDL2, GTK 3, X11 and Xrandr development packages with apt, dnf or pacman after asking, and the game draws with Vulkan (X11, or XWayland under Wayland). On macOS it needs Xcode for its Metal shader compiler and installs CMake, Ninja and SDL2 with Homebrew; the game draws with Metal. The crash-trace tools (`SWE1R_STACKDUMP`, `SWE1R_WATCH`) are Windows only.
 
+**Other machines (Linux arm64, Android):** the second installer on the release page,
+Racer-Builds-Installer, or `./setup-builds.sh` / `tools\setup-builds.ps1`, builds the game in Docker for a Raspberry Pi 5 or
+other arm64 Linux, and as an Android `.apk`, from your ROM. See [docs/other-builds.md](docs/other-builds.md).
+
 **By hand:** the build uses the toolkits in `deps/` if Setup fetched them, else three sibling checkouts next to this repo: [N64Recomp](https://github.com/sp00nznet/N64Recomp), [N64ModernRuntime](https://github.com/sp00nznet/N64ModernRuntime) and [rt64](https://github.com/sp00nznet/rt64) (the sp00nznet forks, which carry the fixes this port needs). On Windows SDL2 comes from RT64's bundled build; on Linux and macOS from the system (`setup.sh` shows the commands: Ninja and `-DCMAKE_BUILD_TYPE=RelWithDebInfo` in place of the Visual Studio generator, `python3`, and no `.exe`).
 
 ```bash

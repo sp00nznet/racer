@@ -1,9 +1,32 @@
-# Builds the recomp-launcher installer for this game (it downloads this repo and runs
-# tools/setup.ps1 or setup.sh on the player's machine; nothing from the game is involved here).
+# Builds the recomp-launcher installers for this game, for Windows, Linux and macOS: artifacts on
+# every push to main, release files on a v* tag. They download this repo and run setup on the
+# player's machine; nothing from the game is involved here.
 on:
   push: { branches: [main], tags: ["v*"] }
+  workflow_dispatch:
 permissions: { contents: write }
 jobs:
+  # Plays the game here: tools/setup.ps1 or setup.sh (launcher/launcher.json).
   installer:
-    uses: sp00nznet/recomp-launcher/.github/workflows/installer.yml@main
-    with: { name: Racer-Installer, platforms: windows linux macos }
+    uses: sp00nznet/recomp-launcher/.github/workflows/installer.yml@v0.4.0
+    with: { launcher-ref: v0.4.0, name: Racer-Installer }
+
+  # The optional second download: builds for other machines (Linux arm64, Android) in Docker,
+  # picked in the installer (launcher-builds/launcher.json, setup-builds.sh).
+  builds:
+    needs: installer   # one release job at a time: the first creates the release
+    uses: sp00nznet/recomp-launcher/.github/workflows/installer.yml@v0.4.0
+    with: { launcher-ref: v0.4.0, manifest: launcher-builds, name: Racer-Builds-Installer }
+
+  # Each installer job writes SHA256SUMS.txt for its own files; one for all of them.
+  sums:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [installer, builds]
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" -D out -p '*Installer*'
+          (cd out && sha256sum -- * > SHA256SUMS.txt)
+          gh release upload "$GITHUB_REF_NAME" out/SHA256SUMS.txt --clobber -R "$GITHUB_REPOSITORY"

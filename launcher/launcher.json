@@ -17,5 +17,5 @@
     "linux": ["bash", "setup.sh", "--yes", "--game", "{game}"],
     "darwin": ["bash", "setup.sh", "--yes", "--game", "{game}"]
   },
-  "play": "* (recomp).*"
+  "play": "Star Wars Episode I Racer (recomp).*"
 }

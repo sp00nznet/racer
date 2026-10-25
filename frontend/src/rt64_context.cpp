@@ -104,6 +104,12 @@ public:
 #elif defined(__APPLE__)
         core.window = { window_handle.window, window_handle.view };
         uint32_t thread_id = 0;
+#elif defined(__ANDROID__)
+        SDL_SysWMinfo wm;
+        SDL_VERSION(&wm.version);
+        SDL_GetWindowWMInfo(window_handle, &wm);
+        core.window = wm.info.android.window;
+        uint32_t thread_id = 0;
 #else
         // ponytail: X11 only; Wayland sessions run it through XWayland (SDL2 picks X11 by default)
         SDL_SysWMinfo wm;

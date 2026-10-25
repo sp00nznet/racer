@@ -504,7 +504,7 @@ int main(int argc, char* argv[]) {
 
     printf("===========================================\n");
     printf("  Star Wars Episode I: Racer\n");
-    printf("  N64 Static Recompilation v%d.%d.%d\n", 0, 2, 0);
+    printf("  N64 Static Recompilation v%d.%d.%d\n", 0, 3, 0);
     printf("  \"Now THIS is podracing!\"\n");
     printf("===========================================\n\n");
 
@@ -542,7 +542,7 @@ int main(int argc, char* argv[]) {
            num_sections, section_table[0].num_funcs);
 
     recomp::Configuration cfg{};
-    cfg.project_version = { 0, 2, 0 };
+    cfg.project_version = { 0, 3, 0 };
     cfg.rsp_callbacks.get_rsp_microcode = get_rsp_microcode;
     cfg.events_callbacks.vi_callback = vi_callback;
     cfg.threads_callbacks.get_game_thread_name = get_game_thread_name;

@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.3.0 (2026-10-25)
+
+Builds for other machines. The release page has a second set of installers, Racer-Builds-Installer
+for Windows, Linux and macOS: tick Linux arm64, Android or both, and it builds them from your own
+ROM in Docker. The first set, which builds and plays the game on the computer itself, is unchanged.
+
+- Linux arm64: for a Raspberry Pi 5 and other arm64 Linux with Vulkan (Debian 12 or newer).
+- Android: an `.apk` for arm64 phones and handhelds with Vulkan; needs a controller for driving.
+- Fixed: on the very first run the launcher asked for the ROM again after finding it.
+- How to install each: docs/other-builds.md.
+
+Known issues: neither build has run on its real hardware yet (Android was tried in the emulator
+up to the game's intro, Linux arm64 in an emulated container); no touch controls on Android.
+
 ## v0.2.0 (2026-10-25)
 
 Linux and macOS. The release page now has an installer for each of Windows, Linux and macOS; on

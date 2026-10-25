@@ -41,9 +41,14 @@ deps/
 
 # Written in the working directory on first run
 swe1racer.json
-mods.json
+mods.json*
 netplay/
 saves/
 
 # Recompiled audio microcode (RSPRecomp rsp/aspMain.toml): derived from the ROM, never committed
 rsp/aspMain.cpp
+
+# setup-builds: the containers' build folders, the results, logs and the launcher it makes
+build-*/
+builds/
+build-logs/

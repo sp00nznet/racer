@@ -1,0 +1,43 @@
+// The app module for scripts/build_android.sh, which puts it into SDL's Android project template.
+// The native code is the repo's own CMakeLists.txt (RACER_ROOT), built as libmain.so.
+apply plugin: 'com.android.application'
+
+android {
+    namespace "org.libsdl.app"
+    compileSdk 34
+    ndkVersion "27.2.12479018"
+    defaultConfig {
+        applicationId "net.sp00nz.racer"
+        minSdk 26          // Vulkan 1.1 era; RT64 needs Vulkan
+        targetSdk 34
+        versionCode 3
+        versionName "0.3.0"
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared",
+                          "-DSDL2_SOURCE_DIR=${System.getenv('SDL2_SRC')}",
+                          "-DRT64_HOST_FILE_TO_C=${System.getenv('HOST_FILE_TO_C')}",
+                          "-DSDL_CCACHE=OFF"
+                targets "SWE1Racer", "SDL2"
+                abiFilters System.getenv('RACER_ABI') ?: 'arm64-v8a'
+            }
+        }
+    }
+    buildTypes {
+        // Optimised, and signed with the debug key so it installs without one of your own.
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path "${System.getenv('RACER_ROOT')}/CMakeLists.txt"
+            buildStagingDirectory "${System.getenv('RACER_ROOT')}/build-android/cxx"
+            version "3.22.1"
+        }
+    }
+    // The ROM goes in uncompressed: the game reads it once on first run.
+    androidResources { noCompress 'z64' }
+    lint { abortOnError false }
+}
