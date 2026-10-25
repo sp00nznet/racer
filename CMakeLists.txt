@@ -28,7 +28,14 @@ set(RT64_DIR "${default_rt64}" CACHE PATH "Path to RT64 renderer")
 # SDL2: on Windows the build RT64 ships (RT64 links it by bare name from this folder);
 # on Linux and macOS the system's (apt/dnf/pacman libsdl2, brew sdl2)
 # =============================================================================
-if(NOT WIN32)
+if(ANDROID)
+    # SDL's source tree, staged into the Gradle project by scripts/build_android.sh
+    # Shared: SDL's Java side loads libSDL2.so before libmain.so.
+    set(SDL_SHARED ON CACHE BOOL "" FORCE)
+    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    add_subdirectory(${SDL2_SOURCE_DIR} ${CMAKE_BINARY_DIR}/SDL)
+    set(SDL2_INCLUDE_DIRS "${SDL2_SOURCE_DIR}/include")
+elseif(NOT WIN32)
     find_package(SDL2 REQUIRED)
     if(NOT TARGET SDL2::SDL2main)
         add_library(SDL2::SDL2main INTERFACE IMPORTED)
@@ -85,11 +92,14 @@ endif()
 # =============================================================================
 add_subdirectory(frontend)
 
-add_executable(SWE1Racer
-    src/main.cpp
-    src/section_table.cpp
-    rsp/aspMain.cpp
-)
+set(GAME_SOURCES src/main.cpp src/section_table.cpp rsp/aspMain.cpp)
+if(ANDROID)
+    # SDL's Java side (SDLActivity) loads libmain.so and calls its SDL_main.
+    add_library(SWE1Racer SHARED ${GAME_SOURCES})
+    set_target_properties(SWE1Racer PROPERTIES OUTPUT_NAME main)
+else()
+    add_executable(SWE1Racer ${GAME_SOURCES})
+endif()
 if(NOT EXISTS "${CMAKE_SOURCE_DIR}/rsp/aspMain.cpp")
     message(FATAL_ERROR "rsp/aspMain.cpp is missing. Run: RSPRecomp rsp/aspMain.toml (tools/setup.ps1 does it)")
 endif()

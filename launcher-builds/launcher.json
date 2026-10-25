@@ -1,0 +1,22 @@
+{
+  "title": "Star Wars Episode I: Racer: other builds",
+  "repo": "sp00nznet/racer",
+  "accent": "#d9822b",
+  "note": {
+    "default": "Builds Star Wars Episode I: Racer from your own USA .z64 for the machines you pick, all in Docker (it must be installed and running). Only the toolchains for what you pick are downloaded. The Linux arm64 build runs emulated on an x86 computer and takes a few hours; Android takes about an hour. The builds land in builds/.",
+    "darwin": "Builds Star Wars Episode I: Racer from your own USA .z64 for the machines you pick, all in Docker Desktop (it must be installed and running). Only the toolchains for what you pick are downloaded. On Apple silicon the Linux arm64 build runs natively; the Android toolchain is x86 and runs emulated, so it takes a few hours. The builds land in builds/."
+  },
+  "game": {
+    "name": "Star Wars Episode I: Racer ROM",
+    "files": ["*.z64"]
+  },
+  "setup": {
+    "windows": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools\\setup-builds.ps1", "-Yes", "-Game", "{game}", "-Targets", "{choices}"],
+    "default": ["bash", "setup-builds.sh", "--yes", "--game", "{game}", "--targets", "{choices}"]
+  },
+  "choices": [
+    { "id": "linux-arm64", "label": "Linux arm64", "note": "Raspberry Pi 5, ARM handhelds and laptops with Vulkan · toolchain 1 GB" },
+    { "id": "android", "label": "Android", "note": ".apk for arm64 phones and handhelds with Vulkan; needs a controller · toolchain 6 GB" }
+  ],
+  "play": "Other builds (recomp).*"
+}

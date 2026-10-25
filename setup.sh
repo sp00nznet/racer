@@ -25,8 +25,6 @@ LOG=$ROOT/logs/setup.log
 echo "Racer recomp setup, $(date)" > "$LOG"
 
 TITLE="Star Wars Episode I Racer"
-HEADER="STAR WARS EP1 RACER"   # ROM header name (0x20)
-CRC="72F70398"                 # CRC1 (0x10), USA release
 STEPS=7
 STEP=0
 
@@ -76,20 +74,7 @@ fi
 
 # ---------------------------------------------------------------------------------------------
 step "Finding your ROM"
-# Prints the first big-endian .z64 USA Racer ROM in the given folders (and their subfolders).
-match=$(python3 - "$ROOT" ${GAME:+"$GAME"} <<EOF
-import os, sys
-for top in sys.argv[1:]:
-    dirs = [top] + sorted(os.path.join(top, d) for d in (os.listdir(top) if os.path.isdir(top) else []) if os.path.isdir(os.path.join(top, d)))
-    for d in dirs:
-        for name in sorted(os.listdir(d)):
-            p = os.path.join(d, name)
-            if not os.path.isfile(p) or os.path.splitext(name)[1].lower() not in (".z64", ".n64", ".v64"): continue
-            with open(p, "rb") as f: h = f.read(0x40)
-            if len(h) == 0x40 and h[0x20:0x33] == b"$HEADER" and h[0x10:0x14].hex().upper() == "$CRC":
-                print(p); sys.exit()
-EOF
-)
+match=$(python3 tools/find_rom.py "$ROOT" ${GAME:+"$GAME"})
 [ -n "$match" ] || fail "No Racer ROM found. Put your USA .z64 of Star Wars Episode I: Racer in this folder (or pass --game <folder>), then run Setup again. Byte-swapped .v64/.n64 dumps need converting to .z64 first."
 [ "$match" = "$ROOT/baserom.z64" ] || cp "$match" "$ROOT/baserom.z64"
 echo "  $match"

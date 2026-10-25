@@ -13,7 +13,12 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#ifdef __ANDROID__
+#include <unistd.h>
+#endif
+#include <fstream>
 #include <string>
+#include <vector>
 
 #include "librecomp/game.hpp"
 #include "ultramodern/ultramodern.hpp"
@@ -36,6 +41,8 @@ const char* env(const char* name) { return std::getenv((g_game.env_prefix + name
 ultramodern::gfx_callbacks_t::gfx_data_t create_gfx() {
     SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "0");
+    // Android: landscape either way up (SDL otherwise lets a resizable window turn portrait).
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
     // Keep reading controllers when the window isn't focused (remote desktop, a second monitor).
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) < 0) {
@@ -51,8 +58,10 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
     g_window_display = d ? std::atoi(d) : g_config.display;
     Uint32 flags = SDL_WINDOW_RESIZABLE | (g_config.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
     if (g_headless) flags = SDL_WINDOW_HIDDEN;
-#ifdef __APPLE__
+#if defined(__APPLE__)
     flags |= SDL_WINDOW_METAL; // RT64 draws into a Metal view on it (create_window)
+#elif defined(__ANDROID__)
+    flags |= SDL_WINDOW_VULKAN; // else SDL puts an OpenGL ES surface on it, and RT64's swap chain can't
 #endif
     g_window = SDL_CreateWindow(g_game.title.c_str(),
         SDL_WINDOWPOS_CENTERED_DISPLAY(g_window_display), SDL_WINDOWPOS_CENTERED_DISPLAY(g_window_display),
@@ -142,7 +151,11 @@ void quit() { ultramodern::quit(); }
 
 bool import_rom(const std::filesystem::path& p, std::string& error) {
     switch (recomp::select_rom(p, g_game.game_id)) {
-    case recomp::RomValidationError::Good: error.clear(); printf("%s using ROM %s\n", log_prefix().c_str(), p.string().c_str()); return true;
+    case recomp::RomValidationError::Good:
+        // select_rom stores the ROM but only marks it valid on the next start: do that now, or the
+        // launcher asks for it again on the first run.
+        recomp::check_all_stored_roms();
+        error.clear(); printf("%s using ROM %s\n", log_prefix().c_str(), p.string().c_str()); return true;
     case recomp::RomValidationError::FailedToOpen: error = "Couldn't open that file."; break;
     case recomp::RomValidationError::NotARom: error = "That file isn't an N64 ROM."; break;
     case recomp::RomValidationError::IncorrectRom: error = "That's a different game's ROM."; break;
@@ -194,6 +207,26 @@ void apply_window_config() {
 int run(const GameInfo& game, recomp::Configuration& cfg, int argc, char** argv) {
     g_game = game;
     g_base = std::filesystem::current_path();
+#ifdef __ANDROID__
+    // No writable working folder on Android: use the app's internal storage, and on the first run
+    // take out the ROM that scripts/build_android.sh packed into the APK's assets.
+    g_base = SDL_AndroidGetInternalStoragePath();
+    std::filesystem::current_path(g_base);
+    setenv("HOME", g_base.c_str(), 1); // RT64 keeps its data in $HOME, which Android doesn't set
+    // stdout and stderr go nowhere on Android: keep them in Android/data/<app>/files/swe1racer.log,
+    // where a file manager or adb can read them.
+    if (const char* ext = SDL_AndroidGetExternalStoragePath()) freopen((std::string(ext) + "/swe1racer.log").c_str(), "w", stdout);
+    dup2(fileno(stdout), fileno(stderr));
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    if (!std::filesystem::exists("baserom.z64")) {
+        if (SDL_RWops* in = SDL_RWFromFile("baserom.z64", "rb")) {
+            std::vector<char> rom((size_t)SDL_RWsize(in));
+            SDL_RWread(in, rom.data(), 1, rom.size());
+            SDL_RWclose(in);
+            std::ofstream("baserom.z64", std::ios::binary).write(rom.data(), rom.size());
+        }
+    }
+#endif
 
     std::string host_port, join_address;
     bool host = false;
