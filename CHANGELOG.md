@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.2.0 (2026-10-25)
+
+Linux and macOS. The release page now has an installer for each of Windows, Linux and macOS; on
+Linux and macOS it runs the new `setup.sh` (or run it yourself), which builds the game from your own
+ROM the same way `Setup.cmd` does on Windows.
+
+- Linux: Vulkan renderer, SDL2 and GTK 3 from your package manager (apt, dnf or pacman).
+- macOS (Apple Silicon): Metal renderer; needs Xcode, and SDL2 from Homebrew.
+- The launcher and in-game menu draw on Vulkan and Metal as well as DirectX 12.
+- Fixed: a crash when quitting, from the game's threads outliving the runtime (seen on Linux).
+
+Known issues: the macOS build is compile-checked only (no Mac to play it on yet); the Linux build was
+played on a software GPU, not real hardware; the crash-trace tools are Windows only. Netplay between
+different operating systems is untested.
+
 ## v0.1.0 (2026-10-24)
 
 First release. Install with the recomp-launcher installer on the release page (or `Setup.cmd`): it

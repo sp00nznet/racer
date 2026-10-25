@@ -36,9 +36,12 @@ desktop.ini
 logs/
 deps/
 * (recomp).cmd
+* (recomp).sh
+* (recomp).command
 
 # Written in the working directory on first run
 swe1racer.json
+mods.json
 netplay/
 saves/
 
