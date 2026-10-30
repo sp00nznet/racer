@@ -8,15 +8,15 @@ permissions: { contents: write }
 jobs:
   # Plays the game here: tools/setup.ps1 or setup.sh (launcher/launcher.json).
   installer:
-    uses: sp00nznet/recomp-launcher/.github/workflows/installer.yml@v0.4.0
-    with: { launcher-ref: v0.4.0, name: Racer-Installer }
+    uses: sp00nznet/recomp-launcher/.github/workflows/installer.yml@v0.6.0
+    with: { launcher-ref: v0.6.0, name: Racer-Installer }
 
   # The optional second download: builds for other machines (Linux arm64, Android) in Docker,
   # picked in the installer (launcher-builds/launcher.json, setup-builds.sh).
   builds:
     needs: installer   # one release job at a time: the first creates the release
-    uses: sp00nznet/recomp-launcher/.github/workflows/installer.yml@v0.4.0
-    with: { launcher-ref: v0.4.0, manifest: launcher-builds, name: Racer-Builds-Installer }
+    uses: sp00nznet/recomp-launcher/.github/workflows/installer.yml@v0.6.0
+    with: { launcher-ref: v0.6.0, manifest: launcher-builds, name: Racer-Builds-Installer }
 
   # Each installer job writes SHA256SUMS.txt for its own files; one for all of them.
   sums:
