@@ -3,6 +3,10 @@ Star Wars Episode I: Racer recomp setup: from a plain download to a launcher, us
 
     Setup.cmd                                   double-click; asks before installing anything
     powershell -File tools\setup.ps1 -Yes -Game "D:\roms"   no questions (recomp-launcher uses this)
+    ... -Targets pc,android,linux-arm64                   also build for other machines, in Docker
+
+Targets: pc (this computer, the default) and the builds in scripts\targets.tsv, which
+tools\setup-builds.ps1 makes after this computer's. Only the picked ones' toolchains are downloaded.
 
 It runs the README's Building steps, skips the ones already done (so a rerun after a failure
 resumes), and logs everything to logs\setup.log. The ROM stays on this machine: it's copied into the
@@ -10,12 +14,21 @@ repo folder as baserom.z64 (gitignored) and recompiled here. Nothing from the ga
 #>
 param(
     [switch]$Yes,          # install missing prerequisites without asking
-    [string]$Game = ""     # folder holding the ROM (default: the repo folder)
+    [string]$Game = "",    # folder holding the ROM (default: the repo folder)
+    [string]$Targets = "pc" # comma-separated: pc and/or scripts\targets.tsv's ids
 )
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
+$picked = @($Targets -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+if (-not $picked) { $picked = @('pc') }
+$others = @($picked | Where-Object { $_ -ne 'pc' })
+# Only other machines: that's tools\setup-builds.ps1's job alone.
+if ($picked -notcontains 'pc') {
+    & (Join-Path $PSScriptRoot "setup-builds.ps1") -Yes:$Yes -Game $Game -Targets ($others -join ',')
+    exit $LASTEXITCODE
+}
 # The toolkits' deepest source files sit ~150 characters below this folder, and the C++ compiler
 # can't open paths past Windows' 260-character limit.
 if ($Root.Length -gt 100) {
@@ -184,3 +197,8 @@ $launcher = Join-Path $Root "$Title (recomp).cmd"
 Write-Host "  $Title (recomp).cmd"
 Write-Host ""
 Write-Host "Done. Double-click the launcher above to play."
+if ($others) {
+    Write-Host ""
+    & (Join-Path $PSScriptRoot "setup-builds.ps1") -Yes:$Yes -Game $Game -Targets ($others -join ',')
+    exit $LASTEXITCODE
+}

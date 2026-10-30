@@ -4,6 +4,10 @@
 #
 #   ./setup.sh                    asks before installing anything
 #   ./setup.sh --yes --game DIR   no questions (recomp-launcher uses this)
+#   ./setup.sh --targets pc,android,linux-arm64   also build for other machines, in Docker
+#
+# Targets: pc (this computer, the default) and the builds in scripts/targets.tsv, which
+# setup-builds.sh makes after this computer's. Only the picked ones' toolchains are downloaded.
 #
 # It skips the steps already done (so a rerun after a failure resumes) and logs everything to
 # logs/setup.log. The ROM stays on this machine: it's copied into this folder as baserom.z64
@@ -11,15 +15,23 @@
 set -e
 cd "$(dirname "$0")"
 ROOT=$PWD
-YES=0; GAME=""
+YES=0; GAME=""; TARGETS=pc
 while [ $# -gt 0 ]; do
   case "$1" in
     --yes|-y) YES=1 ;;
     --game|--game-dir) GAME=$2; shift ;;
-    *) echo "usage: ./setup.sh [--yes] [--game DIR]" >&2; exit 2 ;;
+    --targets) TARGETS=${2:-pc}; shift ;;
+    *) echo "usage: ./setup.sh [--yes] [--game DIR] [--targets pc,android,linux-arm64]" >&2; exit 2 ;;
   esac
   shift
 done
+OTHERS=$(echo ",$TARGETS," | sed 's/,pc,/,/g; s/^,*//; s/,*$//')
+builds() {
+  args=(--targets "$OTHERS"); [ $YES = 1 ] && args+=(--yes); [ -n "$GAME" ] && args+=(--game "$GAME")
+  exec bash "$ROOT/setup-builds.sh" "${args[@]}"
+}
+# Only other machines: that's setup-builds.sh's job alone.
+case ",$TARGETS," in *,pc,*) ;; *) builds ;; esac
 mkdir -p logs deps
 LOG=$ROOT/logs/setup.log
 echo "Racer recomp setup, $(date)" > "$LOG"
@@ -131,3 +143,4 @@ chmod +x "$launcher"
 echo "  $launcher"
 echo ""
 echo "Done. Run the launcher above to play."
+[ -z "$OTHERS" ] || { echo ""; builds; }
