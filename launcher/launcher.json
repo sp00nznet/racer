@@ -13,9 +13,14 @@
     "files": ["*.z64"]
   },
   "setup": {
-    "windows": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools\\setup.ps1", "-Yes", "-Game", "{game}"],
-    "linux": ["bash", "setup.sh", "--yes", "--game", "{game}"],
-    "darwin": ["bash", "setup.sh", "--yes", "--game", "{game}"]
+    "windows": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools\\setup.ps1", "-Yes", "-Game", "{game}", "-Targets", "{choices}"],
+    "linux": ["bash", "setup.sh", "--yes", "--game", "{game}", "--targets", "{choices}"],
+    "darwin": ["bash", "setup.sh", "--yes", "--game", "{game}", "--targets", "{choices}"]
   },
+  "choices": [
+    { "id": "pc", "label": "This computer", "note": "Play here: Windows, Linux or macOS · 6 to 8 GB" },
+    { "id": "android", "label": "Android", "note": ".apk for arm64 Vulkan devices; needs a controller · Docker, 6 GB" },
+    { "id": "linux-arm64", "label": "Linux arm64", "note": "Raspberry Pi 5 and ARM handhelds · Docker, 1 GB" }
+  ],
   "play": "Star Wars Episode I Racer (recomp).*"
 }
